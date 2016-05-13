@@ -1,10 +1,12 @@
 package models
 
 import (
+	_ "github.com/lib/pq"
 	"github.com/astaxie/beego/orm"
 	"github.com/astaxie/beego"
 	"fmt"
 )
+
 
 func init(){
 	//Register model
@@ -27,13 +29,14 @@ func init(){
 }
 
 
+
 func registerModel(){
 	modelPrefix := beego.AppConfig.String("model::prefix")
-	if modelPrefix != nil || modelPrefix != "" {
-		return orm.RegisterModelWithPrefix(modelPrefix, new(AuthUser))
+	if modelPrefix != "" {
+		orm.RegisterModelWithPrefix(modelPrefix, new(AuthUser))
+	}else{
+		orm.RegisterModel(new(AuthUser))
 	}
-
-	return orm.RegisterModel(new(AuthUser))
 }
 
 
