@@ -22,12 +22,15 @@ type AuthUser struct {
 
 
 
+
+
+
 //Get user..
-func (user *AuthUser)getUser() (err error){
+func (user *AuthUser)GetUser() (err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	err = o.Read(&user)
-	return err
+	return
 }
 
 

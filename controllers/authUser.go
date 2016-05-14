@@ -5,25 +5,25 @@ import "github.com/astaxie/beego"
 
 
 // Operations about object
-type AuthMainController struct {
+type AuthUserController struct {
 	beego.Controller
 }
 
 
 
 // @router / [get]
-func (authCtrl *AuthMainController) GetAll(){
+func (authCtrl *AuthUserController) GetAll(){
 	authCtrl.graphQLRequest()
 }
 
 
 // @router / [post]
-func (authCtrl *AuthMainController) Post(){
+func (authCtrl *AuthUserController) Post(){
 	authCtrl.graphQLRequest()
 }
 
 
 
-func (this *AuthMainController) graphQLRequest(){
+func (this *AuthUserController) graphQLRequest(){
 
 }

@@ -18,7 +18,7 @@ func init() {
 		beego.NSNamespace("/v1",
 			beego.NSNamespace("/internal",
 				beego.NSInclude(
-					&controllers.AuthMainController{},
+					&controllers.AuthUserController{},
 				),
 			),
 		),
