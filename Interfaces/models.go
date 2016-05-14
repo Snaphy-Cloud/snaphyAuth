@@ -9,14 +9,17 @@ import (
 )
 
 var (
-	UserInterface *graphql.Interface
-	Application   *graphql.Interface
-	Info          *graphql.Interface
-	CreatedOn     *graphql.Interface
+	UserInterface          *graphql.Interface
+	ApplicationInterface   *graphql.Interface
+	InfoInterface          *graphql.Interface
+	CreatedOnInterface     *graphql.Interface
+	DbIndexInterface       *graphql.Interface
+	TokenInterface         *graphql.Interface
 
 	EmailType     *graphql.Scalar
 
 	StatusEnum    *graphql.Enum
+	DatabaseTypeEnum  *graphql.Enum
 )
 
 
@@ -70,12 +73,35 @@ func init() {
 	})
 
 
+
+	DatabaseTypeEnum = graphql.NewEnum(graphql.EnumConfig{
+		Name: "DatabaseType",
+		Description:"Show name of the database type connected.",
+		Values:graphql.EnumValueConfigMap{
+			"POSTGRES": graphql.EnumValueConfig{
+				Value: "postgres",
+				Description: "Postgres database",
+			},
+
+			"MYSQL": graphql.EnumValueConfig{
+				Value: "mysql",
+				Description: "MySql database",
+			},
+
+			"MONGODB": graphql.EnumValueConfig{
+				Value: "mongodb",
+				Description: "MongoDb database",
+			},
+		},
+	})
+
+
 	UserInterface = graphql.NewInterface(graphql.InterfaceConfig{
 		Name: "User",
 		Description: "A user defined in snaphy auth cloud",
 		Fields: graphql.Fields{
 			"id": &graphql.Field{
-				Type:        graphql.NewNonNull(graphql.String),
+				Type:        graphql.NewNonNull(graphql.ID),
 				Description: "The id of the user.",
 			},
 			"firstName": &graphql.Field{
@@ -94,12 +120,12 @@ func init() {
 	})
 
 
-	Application = graphql.NewInterface(graphql.InterfaceConfig{
+	ApplicationInterface = graphql.NewInterface(graphql.InterfaceConfig{
 		Name: "Application",
 		Description:"Application model interface snaphy auth cloud",
 		Fields:graphql.Fields{
 			"id" : &graphql.Field{
-				Type: graphql.NewNonNull(graphql.String),
+				Type: graphql.NewNonNull(graphql.ID),
 				Description:"Unique identity of the application.",
 			},
 			"name": &graphql.Field{
@@ -110,7 +136,7 @@ func init() {
 	})
 
 
-	Info = graphql.NewInterface(graphql.InterfaceConfig{
+	InfoInterface = graphql.NewInterface(graphql.InterfaceConfig{
 		Name: "Info",
 		Description: "Interface for displaying information.",
 		Fields: graphql.Fields{
@@ -123,7 +149,7 @@ func init() {
 
 
 
-	CreatedOn = graphql.NewInterface(graphql.InterfaceConfig{
+	CreatedOnInterface = graphql.NewInterface(graphql.InterfaceConfig{
 		Name: "CreatedOn",
 		Description: "Interface for displaying date for vaious type of events like added/ last updated.",
 		Fields: graphql.Fields{
@@ -138,6 +164,42 @@ func init() {
 			},
 		},
 	})
+
+
+	DbIndexInterface = graphql.NewInterface(graphql.InterfaceConfig{
+		Name: "DatabaseIndex",
+		Description: "Interface for displaying all database currently present.",
+		Fields: graphql.Fields{
+			"id": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.ID),
+				Description: "unique Id for database index field",
+			},
+
+			"name": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.String),
+				Description: "Name of the database.",
+			},
+
+			"databaseType": &graphql.Field{
+				Type: graphql.NewNonNull(DatabaseTypeEnum),
+				Description: "Type of database used.",
+			},
+		},
+	})
+
+
+	TokenInterface = graphql.NewInterface(graphql.InterfaceConfig{
+		Name: "Token",
+		Description:"Simple interface for storing token values.",
+		Fields: graphql.Fields{
+			"id": 			&graphql.NewNonNull(graphql.ID),
+			"publicKey": 		graphql.String,
+			"privateKey": 		graphql.String,
+			"hashType": 		graphql.String,
+			"applicationSecret" : 	graphql.String,
+		},
+	})
+
 
 
 }
