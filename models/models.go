@@ -9,6 +9,17 @@ import (
 
 
 func init(){
+	//First register the model..
+	RegisterModel( new(AuthUser), new(Application), new(Token), new(DbIndex) )
+
+	//Now register the database..
+	registerDb()
+
+}
+
+
+
+func registerDb(){
 	// orm.RegisterDataBase("default", "mysql", "root:root@/orm_test?charset=utf8")
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	database, user, password := getDatabaseCredentials()
@@ -25,7 +36,6 @@ func init(){
 		fmt.Println(err)
 	}
 }
-
 
 
 

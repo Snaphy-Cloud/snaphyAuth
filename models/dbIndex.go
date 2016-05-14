@@ -7,8 +7,9 @@ type DbIndex struct  {
 	Name string
 	DbUser string
 	DbPass string
-	Application *Application `orm:"rel(fk)"`
-	Status string `orm:"default('active')"`
+	DbType string
+	Application *Application `orm:"null;rel(one)"`
+	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 }

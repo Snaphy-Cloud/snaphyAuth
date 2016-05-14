@@ -12,7 +12,7 @@ type AuthUser struct {
 	FirstName string
 	LastName string
 	Email string
-	Status string `orm:"default('active')"`
+	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 	Application []*Application `orm:"null;reverse(many)"`

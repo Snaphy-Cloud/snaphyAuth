@@ -180,9 +180,19 @@ func init() {
 				Description: "Name of the database.",
 			},
 
-			"databaseType": &graphql.Field{
+			"dbType": &graphql.Field{
 				Type: graphql.NewNonNull(DatabaseTypeEnum),
 				Description: "Type of database used.",
+			},
+
+			"DbUser": &graphql.Field{
+				Type: graphql.NewNonNull(DatabaseTypeEnum),
+				Description: "Username authorized for this database",
+			},
+
+			"DbPass": &graphql.Field{
+				Type: graphql.NewNonNull(DatabaseTypeEnum),
+				Description: "Password authorized for this database.",
 			},
 		},
 	})

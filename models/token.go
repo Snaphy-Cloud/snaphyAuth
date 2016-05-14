@@ -10,7 +10,7 @@ type Token struct  {
 	AppSecret string
 	AppId string
 	Application *Application `orm:"rel(fk)"`
-	Status string `orm:"default('active')"`
+	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 }
