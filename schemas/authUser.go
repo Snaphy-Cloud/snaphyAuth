@@ -8,7 +8,8 @@ import (
 
 
 var (
-	AuthUserType *graphql.Object
+	AuthUserType    *graphql.Object
+	ApplicationType *graphql.Object
 )
 
 
@@ -16,7 +17,7 @@ var (
 
 
 func init(){
-	AuthUserType = graphql.NewObject(graphql.ObjectConfig{
+	AuthUserType = graphql.NewObject(graphql.ObjectConfig {
 		Name: "AuthUser",
 		Description: "Snaphy cloud main Auth type for storing all application register info.",
 		Fields: graphql.Fields{
@@ -97,7 +98,7 @@ func init(){
 				Description:"DateTime when the user last update their data",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					if user, ok := p.Source.(models.AuthUser); ok {
-						return  user.Added
+						return  user.LastUpdated
 					}
 					return nil, nil
 				},
@@ -107,6 +108,23 @@ func init(){
 			snaphyInterface.UserInterface,
 			snaphyInterface.InfoInterface,
 			snaphyInterface.CreatedOnInterface,
+		},
+	})
+
+
+
+	ApplicationType = graphql.NewObject(graphql.ObjectConfig{
+		Name:"Application",
+		Description:"Application model contains info about user assosiated with application",
+		Fields:graphql.Fields{
+			"id" : &graphql.Field{
+				Type: graphql.NewNonNull(graphql.ID),
+				Description:"Unique identity of the application.",
+			},
+			"name": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.String),
+				Description: "Application name for graphql",
+			},
 		},
 	})
 }
