@@ -1,10 +1,8 @@
 package models
 
 import (
-
-)
-import (
 	"time"
+	"github.com/astaxie/beego/orm"
 )
 
 type AuthUser struct {
@@ -17,6 +15,27 @@ type AuthUser struct {
 
 
 func init(){
-
+	RegisterModel(new(AuthUser))
 }
+
+
+//Get user..
+func (user *AuthUser)getUser() (err error){
+	o := orm.NewOrm()
+	o.Using("default")
+	err = o.Read(&user)
+	return err
+}
+
+
+
+func (user *AuthUser) Save() error {
+	// insert
+	o := orm.NewOrm()
+	o.Using("default")
+	_, err := o.Insert(&user)
+	return err
+}
+
+
 

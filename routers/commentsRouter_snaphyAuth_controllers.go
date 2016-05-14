@@ -6,6 +6,20 @@ import (
 
 func init() {
 
+	beego.GlobalControllerRouter["snaphyAuth/controllers:AuthMainController"] = append(beego.GlobalControllerRouter["snaphyAuth/controllers:AuthMainController"],
+		beego.ControllerComments{
+			"GetAll",
+			`/`,
+			[]string{"get"},
+			nil})
+
+	beego.GlobalControllerRouter["snaphyAuth/controllers:AuthMainController"] = append(beego.GlobalControllerRouter["snaphyAuth/controllers:AuthMainController"],
+		beego.ControllerComments{
+			"Post",
+			`/`,
+			[]string{"post"},
+			nil})
+
 	beego.GlobalControllerRouter["snaphyAuth/controllers:ObjectController"] = append(beego.GlobalControllerRouter["snaphyAuth/controllers:ObjectController"],
 		beego.ControllerComments{
 			"Post",

@@ -9,8 +9,6 @@ import (
 
 
 func init(){
-	//Register model
-	registerModel()
 	// orm.RegisterDataBase("default", "mysql", "root:root@/orm_test?charset=utf8")
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	database, user, password := getDatabaseCredentials()
@@ -30,12 +28,13 @@ func init(){
 
 
 
-func registerModel(){
+
+func RegisterModel(snaphyModel ...interface{}){
 	modelPrefix := beego.AppConfig.String("model::prefix")
 	if modelPrefix != "" {
-		orm.RegisterModelWithPrefix(modelPrefix, new(AuthUser))
+		orm.RegisterModelWithPrefix(modelPrefix, snaphyModel...)
 	}else{
-		orm.RegisterModel(new(AuthUser))
+		orm.RegisterModel(snaphyModel...)
 	}
 }
 
