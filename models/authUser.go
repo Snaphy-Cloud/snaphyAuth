@@ -5,20 +5,21 @@ import (
 	"github.com/astaxie/beego/orm"
 )
 
+
+
 type AuthUser struct {
 	Id int
 	FirstName string
 	LastName string
 	Email string
-	Status string
+	Status string `orm:"default('active')"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
-	LastUpdated time.Time `orm:"auto_now_add;type(datetime)"`
+	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
+	Application []*Application `orm:"null;reverse(many)"`
 }
 
 
-func init(){
-	RegisterModel(new(AuthUser))
-}
+
 
 
 //Get user..
