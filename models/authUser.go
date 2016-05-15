@@ -31,7 +31,7 @@ func (user *AuthUser)getUser() (err error){
 }
 
 
-func (user *AuthUser) fetchApps() (num int, err error) {
+func (user *AuthUser) fetchApps() (num int64, err error) {
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.LoadRelated(&user, "Apps")
@@ -42,23 +42,23 @@ func (user *AuthUser) fetchApps() (num int, err error) {
 
 
 //Used for registering a user....
-func (user *AuthUser) create() (id int, err error) {
+func (user *AuthUser) create() (id int64, err error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
 	id, err = o.Insert(&user)
-	return err
+	return id, err
 }
 
 
 //Deactivate a user account...
-func (user *AuthUser) deactivate() (int, error){
+func (user *AuthUser) deactivate() (int64, error){
 	o := orm.NewOrm()
 	o.Using("default")
 	user.Status = StatusMap["DEACTIVATED"]
 	num, err := o.Update(&user)
 	if err != nil{
-		return nil, err
+		return 0, err
 	}
 	//Now also deactivate all its application
 	_, err = o.QueryTable(new(Application)).Filter("owner_id", user.Id).Update(orm.Params{

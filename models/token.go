@@ -7,6 +7,8 @@ import (
 	"crypto/rsa"
 	"github.com/satori/go.uuid"
 	"github.com/astaxie/beego"
+	"encoding/pem"
+	"crypto/x509"
 )
 
 type Token struct  {
@@ -20,6 +22,11 @@ type Token struct  {
 	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
+}
+
+
+func init(){
+	//TODO Test performance benchmark for these key generation
 }
 
 
@@ -37,7 +44,7 @@ func (token *Token) getToken()(err error){
 
 //Used for creating a token..
 //Only Application
-func (token *Token) create() (id int, err error) {
+func (token *Token) create() (id int64, err error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
@@ -48,16 +55,23 @@ func (token *Token) create() (id int, err error) {
 		return
 	}
 	//Now store private key
-	token.PrivateKey = ""+privateKey
-	token.PublicKey = ""+ &privateKey.PublicKey
-	token.HashType = beego.AppConfig.String("jwt::algorithm")
-	token.AppId = uuid.NewV4()
-	token.AppSecret = uuid.NewV4()
 
+	token.PrivateKey, err = GeneratePem(privateKey)
+	token.PublicKey, err = GeneratePub(privateKey)
+	token.HashType = beego.AppConfig.String("jwt::algorithm")
+	token.AppId = uuid.NewV4().String()
+	token.AppSecret = uuid.NewV4().String()
+
+	if err != nil{
+		return  0, err
+	}
 	//Get the appId.
 	id, err = o.Insert(&token)
 	return
 }
+
+
+
 
 
 
@@ -71,6 +85,36 @@ func (token *Token) delete() (num int64, err error){
 
 
 
+
+
+//Generate private key in pem format..
+func GeneratePem(privateKey *rsa.PrivateKey)(string, error){
+	pemdata := pem.EncodeToMemory(
+		&pem.Block{
+			Type: "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+		},
+	)
+
+	return string(pemdata), nil
+}
+
+//http://stackoverflow.com/questions/13555085/save-and-load-crypto-rsa-privatekey-to-and-from-the-disk
+//Generate public  key file pub format..
+func GeneratePub(privateKey *rsa.PrivateKey)(string, error){
+	PubASN1, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		// do something about it
+		return "", err
+	}
+
+	pubBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: PubASN1,
+	})
+
+	return string(pubBytes), err
+}
 
 
 

@@ -17,10 +17,10 @@ type Application struct {
 
 
 //Get the  application listed whose application id is given..
-func (app *Application) getApp()(id int, err error){
+func (app *Application) getApp()(err error){
 	o := orm.NewOrm()
 	o.Using("default")
-	id, err = o.Read(&app)
+	err = o.Read(&app)
 	return
 }
 
@@ -45,7 +45,7 @@ func (app *Application) deactivate() (num int64, err error){
 	num, err = o.Update(&app)
 	//Now also deactivate all token whose...status is active..
 	if err != nil{
-		return nil, err
+		return 0, err
 	}
 	//Now also deactivate all its application
 	//Only change status of those token whose status is Active
@@ -64,6 +64,5 @@ func (app *Application) delete() (num int64, err error){
 	num, err = o.Delete(app)
 	return
 }
-
 
 
