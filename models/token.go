@@ -3,6 +3,10 @@ package models
 import (
 	"time"
 	"github.com/astaxie/beego/orm"
+	"crypto/rand"
+	"crypto/rsa"
+	"github.com/satori/go.uuid"
+	"github.com/astaxie/beego"
 )
 
 type Token struct  {
@@ -31,14 +35,53 @@ func (token *Token) getToken()(err error){
 
 
 
-//Used for registering a user....
+//Used for creating a token..
 //Only Application
-func (token *Token) save() (error) {
+func (token *Token) create() (id int, err error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
-	_, err := o.Insert(&app)
-	return err
+	var privateKey *rsa.PrivateKey
+	//generate private keys.
+	privateKey, err = generateKeys()
+	if err != nil{
+		return
+	}
+	//Now store private key
+	token.PrivateKey = ""+privateKey
+	token.PublicKey = ""+ &privateKey.PublicKey
+	token.HashType = beego.AppConfig.String("jwt::algorithm")
+	token.AppId = uuid.NewV4()
+	token.AppSecret = uuid.NewV4()
+
+	//Get the appId.
+	id, err = o.Insert(&token)
+	return
+}
+
+
+
+//Only delete a token by ID
+func (token *Token) delete() (num int64, err error){
+	o := orm.NewOrm()
+	o.Using("default")
+	num, err = o.Delete(token)
+	return
+}
+
+
+
+
+
+
+
+
+
+//Method to generate public and private keys..
+func generateKeys() (privateKey *rsa.PrivateKey, err error){
+	// Generate RSA Keys
+	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	return
 }
 
 

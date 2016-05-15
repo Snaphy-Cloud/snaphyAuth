@@ -17,17 +17,17 @@ type Application struct {
 
 
 //Get the  application listed whose application id is given..
-func (app *Application) getApp()(err error){
+func (app *Application) getApp()(id int, err error){
 	o := orm.NewOrm()
 	o.Using("default")
-	err = o.Read(&app)
+	id, err = o.Read(&app)
 	return
 }
 
 
 
-//Used for registering a user....
-func (app *Application) save() (error) {
+//Used for creating an application....
+func (app *Application) create() (error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
@@ -38,7 +38,7 @@ func (app *Application) save() (error) {
 
 
 //Deactivate a user account...
-func (app *Application) deactivate() (num int, err error){
+func (app *Application) deactivate() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	app.Status = StatusMap["DEACTIVATED"]
@@ -58,7 +58,7 @@ func (app *Application) deactivate() (num int, err error){
 }
 
 //Only delete a user by ID
-func (app *Application) delete() (num int, err error){
+func (app *Application) delete() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.Delete(app)

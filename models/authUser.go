@@ -42,11 +42,11 @@ func (user *AuthUser) fetchApps() (num int, err error) {
 
 
 //Used for registering a user....
-func (user *AuthUser) save() (error) {
+func (user *AuthUser) create() (id int, err error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
-	_, err := o.Insert(&user)
+	id, err = o.Insert(&user)
 	return err
 }
 
