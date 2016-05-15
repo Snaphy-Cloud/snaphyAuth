@@ -15,18 +15,15 @@ type AuthUser struct {
 	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
-	Application []*Application `orm:"null;reverse(many)"`
+	Apps []*Application `orm:"null;reverse(many)"`
 }
 
 
 
 
 
-
-
-
 //Get user..
-func (user *AuthUser)GetUser() (err error){
+func (user *AuthUser)getUser() (err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	err = o.Read(&user)
@@ -34,13 +31,41 @@ func (user *AuthUser)GetUser() (err error){
 }
 
 
+func (user *AuthUser) fetchApps() (num int, err error) {
+	o := orm.NewOrm()
+	o.Using("default")
+	num, err = o.LoadRelated(&user, "Apps")
+	return
+}
 
-func (user *AuthUser) Save() error {
+
+
+
+//Used for registering a user....
+func (user *AuthUser) save() (error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
 	_, err := o.Insert(&user)
 	return err
+}
+
+
+//Deactivate a user account...
+func (user *AuthUser) deactivate() (int, error){
+	o := orm.NewOrm()
+	o.Using("default")
+	user.Status = StatusMap["DEACTIVATED"]
+	num, err := o.Update(&user)
+	if err != nil{
+		return nil, err
+	}
+	//Now also deactivate all its application
+	_, err = o.QueryTable(new(Application)).Filter("owner_id", user.Id).Update(orm.Params{
+		"status": StatusMap["DEACTIVATED"],
+	})
+
+	return num, err
 }
 
 

@@ -3,6 +3,7 @@ package Interfaces
 
 import (
 	"github.com/graphql-go/graphql"
+	"snaphyAuth/models"
 	"github.com/graphql-go/graphql/language/kinds"
 	"github.com/graphql-go/graphql/language/ast"
 	valid "github.com/asaskevich/govalidator"
@@ -50,22 +51,22 @@ func init() {
 		Description:"Status enum showing active/inactive status",
 		Values:graphql.EnumValueConfigMap{
 			"ACTIVE": graphql.EnumValueConfig{
-				Value: "active",
+				Value: models.StatusMap["ACTIVE"],
 				Description: "Shows active status",
 			},
 
 			"INACTIVE": graphql.EnumValueConfig{
-				Value: "inactive",
+				Value: models.StatusMap["INACTIVE"],
 				Description: "Shows inactive status",
 			},
 
 			"DISABLED": graphql.EnumValueConfig{
-				Value: "disabled",
+				Value: models.StatusMap["DISABLED"],
 				Description: "Shows disabled status",
 			},
 
 			"DEACTIVATED": graphql.EnumValueConfig{
-				Value: "deactivated",
+				Value: models.StatusMap["DEACTIVATED"],
 				Description: "Shows deactivated status",
 			},
 

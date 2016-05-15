@@ -11,10 +11,25 @@ import (
 func init(){
 	//First register the model..
 	RegisterModel( new(AuthUser), new(Application), new(Token), new(DbIndex) )
-
 	//Now register the database..
 	registerDb()
+	//Initialize status..
+	initStatus()
+}
 
+
+
+var (
+	StatusMap map[string]string
+)
+
+
+func initStatus(){
+	StatusMap = make(map[string]string)
+	StatusMap["ACTIVE"] = "active"
+	StatusMap["INACTIVE"] = "inactive"
+	StatusMap["DISABLED"] = "disabled"
+	StatusMap["DEACTIVATED"] = "DEACTIVATED"
 }
 
 
