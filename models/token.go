@@ -44,7 +44,7 @@ func (token *Token) getToken()(err error){
 
 //Used for creating a token..
 //Only Application
-func (token *Token) create() (id int64, err error) {
+func (token *Token) create() (id int64, err error){
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")

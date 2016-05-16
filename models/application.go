@@ -52,8 +52,6 @@ func (app *Application) deactivate() (num int64, err error){
 	_, err = o.QueryTable(new(Token)).Filter("application_id", app.Id).Filter("status", StatusMap["ACTIVE"]).Update(orm.Params{
 		"status": StatusMap["DEACTIVATED"],
 	})
-
-
 	return
 }
 

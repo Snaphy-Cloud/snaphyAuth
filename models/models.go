@@ -5,6 +5,8 @@ import (
 	"github.com/astaxie/beego/orm"
 	"github.com/astaxie/beego"
 	"fmt"
+	_ "os"
+	"os"
 )
 
 
@@ -12,7 +14,11 @@ func init(){
 	//First register the model..
 	RegisterModel( new(AuthUser), new(Application), new(Token), new(DbIndex) )
 	//Now register the database..
-	registerDb()
+	err := registerDb()
+	if err != nil{
+		beego.Trace(err)
+		os.Exit(1)
+	}
 	//Initialize status..
 	initStatus()
 }
@@ -34,7 +40,7 @@ func initStatus(){
 
 
 
-func registerDb(){
+func registerDb() (err error){
 	// orm.RegisterDataBase("default", "mysql", "root:root@/orm_test?charset=utf8")
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	database, user, password := getDatabaseCredentials()
@@ -46,10 +52,8 @@ func registerDb(){
 	//Default value of debug is false
 	debug := beego.AppConfig.DefaultBool("model:prefix", false)
 	orm.Debug = debug
-	err := orm.RunSyncdb(name, force, verbose)
-	if err != nil {
-		fmt.Println(err)
-	}
+	err = orm.RunSyncdb(name, force, verbose)
+	return
 }
 
 
