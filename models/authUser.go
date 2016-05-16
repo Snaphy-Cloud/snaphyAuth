@@ -38,7 +38,7 @@ func (user *AuthUser)GetUser() (err error){
 }
 
 //Get user..
-func (user *AuthUser)GetCustomUser(key string) (err error){
+func (user *AuthUser) GetCustomUser(key string) (err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	err = o.Read(user, key)

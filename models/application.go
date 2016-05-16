@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 	"github.com/astaxie/beego/orm"
+	"errors"
 )
 
 type Application struct {
@@ -16,17 +17,31 @@ type Application struct {
 }
 
 
+
+func (app *Application) FetchAppTokens() (num int64, err error) {
+	o := orm.NewOrm()
+	o.Using("default")
+	num, err = o.LoadRelated(app, "TokenInfo")
+	return
+}
+
+
 //Get the  application listed whose application id is given..
 func (app *Application) GetApp()(err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	if app.Id != 0{
 		err = o.Read(app)
-	}else{
+	}else if app.Name != ""{
 		err = o.Read(app, "Name")
+	}else{
+		return errors.New("Either name of Id property is required.")
 	}
 	return
 }
+
+
+
 
 
 
@@ -51,6 +66,7 @@ func (app *Application) Deactivate() (num int64, err error){
 	if err != nil{
 		return 0, err
 	}
+
 	//Now also deactivate all its application
 	//Only change status of those token whose status is Active
 	_, err = o.QueryTable(new(Token)).Filter("application_id", app.Id).Filter("status", StatusMap["ACTIVE"]).Update(orm.Params{
@@ -63,7 +79,7 @@ func (app *Application) Deactivate() (num int64, err error){
 func (app *Application) Activate() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
-	app.Status = StatusMap["ACTIVATE"]
+	app.Status = StatusMap["ACTIVE"]
 	num, err = o.Update(app)
 	//Now also deactivate all token whose...status is active..
 	if err != nil{

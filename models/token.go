@@ -9,12 +9,14 @@ import (
 	"github.com/astaxie/beego"
 	"encoding/pem"
 	"crypto/x509"
+	"io/ioutil"
+	"github.com/ory-am/osin-storage/Godeps/_workspace/src/github.com/go-errors/errors"
 )
 
 type Token struct  {
 	Id int
-	PublicKey string `orm:"unique"`
-	PrivateKey string `orm:"unique"`
+	PublicKey string `orm:"unique;size(2050)"`
+	PrivateKey string `orm:"unique;size(2050)"`
 	HashType string
 	AppSecret string `orm:"unique"`
 	AppId string `orm:"unique"`
@@ -33,18 +35,26 @@ func init(){
 //Method for generating token..
 
 //Get token
-func (token *Token) getToken()(err error){
+func (token *Token) GetToken()(err error){
 	o := orm.NewOrm()
 	o.Using("default")
-	err = o.Read(&token)
-	return
+	if token.Id != 0{
+		err = o.Read(token)
+		return
+	}else if token.AppId != ""{
+		err = o.Read(token, "AppId")
+		return
+	}else{
+		return errors.New("You must provide atleast ID or Application Id to fetch a token details")
+	}
+
 }
 
 
 
 //Used for creating a token..
 //Only Application
-func (token *Token) create() (id int64, err error){
+func (token *Token) Create() (id int64, err error){
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
@@ -66,17 +76,33 @@ func (token *Token) create() (id int64, err error){
 		return  0, err
 	}
 	//Get the appId.
-	id, err = o.Insert(&token)
+	id, err = o.Insert(token)
 	return
+}
+
+
+
+func (token *Token) DownloadPrivateKey() (err error){
+	// write the whole body at once
+	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PrivateKey), 0644)
+	return
+
+}
+
+
+func (token *Token) DownloadPublicKey() (err error){
+	// write the whole body at once
+	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PublicKey), 0644)
+	return err
+
 }
 
 
 
 
 
-
 //Only delete a token by ID
-func (token *Token) delete() (num int64, err error){
+func (token *Token) Delete() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.Delete(token)
@@ -98,6 +124,10 @@ func GeneratePem(privateKey *rsa.PrivateKey)(string, error){
 
 	return string(pemdata), nil
 }
+
+
+
+
 
 //http://stackoverflow.com/questions/13555085/save-and-load-crypto-rsa-privatekey-to-and-from-the-disk
 //Generate public  key file pub format..

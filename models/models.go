@@ -48,9 +48,9 @@ func registerDb() (err error){
 	orm.RegisterDataBase("default", "postgres", connString )
 	name := "default"
 	force := false
-	verbose := beego.AppConfig.DefaultBool("model:debug", false)
+	verbose := beego.AppConfig.DefaultBool("model::debug", false)
 	//Default value of debug is false
-	debug := beego.AppConfig.DefaultBool("model:debug", false)
+	debug := beego.AppConfig.DefaultBool("model::debug", false)
 	orm.Debug = debug
 	err = orm.RunSyncdb(name, force, verbose)
 	return

@@ -306,31 +306,28 @@ func main() {
 				var (
 					err error
 					name string
-					num int64
+
 				)
 
 				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
 
-					return "Application name is required", govalidator.IsNull(name)
+					return "Application name is required", !govalidator.IsNull(value)
 				})
 
 
 				app := new(models.Application)
 				app.Name = name
-				num, err = app.GetApp()
+				err = app.GetApp()
 
-				if err != nil{
+				if err != nil {
 					fmt.Println(chalk.Red, "Error deactivating an application", chalk.Reset)
-				}
-				if num == 0{
-					fmt.Println(chalk.Green, "Application name not found\n", chalk.Reset)
-
 				}else{
 					fmt.Println(chalk.Green, "Application deactivated successfully\n", chalk.Reset)
+					_, err = app.Deactivate()
+					printAppDetail(app)
 				}
 
-				num, err = app.Deactivate()
-				printAppDetail(app)
+
 
 				return err
 			},
@@ -342,37 +339,158 @@ func main() {
 				var (
 					err error
 					name string
-					num int64
 				)
 
 				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
 
-					return "Application name is required", govalidator.IsNull(name)
+					return "Application name is required", !govalidator.IsNull(value)
 				})
 
 
 				app := new(models.Application)
 				app.Name = name
-				num, err = app.GetApp()
+				err = app.GetApp()
 
 				if err != nil{
 					fmt.Println(chalk.Red, "Error activating application", chalk.Reset)
-				}
-				if num == 0{
-					fmt.Println(chalk.Green, "Application name not found\n", chalk.Reset)
-
 				}else{
 					fmt.Println(chalk.Green, "Application activated successfully\n", chalk.Reset)
+					_, err = app.Activate()
+					printAppDetail(app)
 				}
 
-				num, err = app.Activate()
+
+				return err
+			},
+		},
+		{
+			Name:      "fetchAppTokens",
+			Usage:     "Fetch Tokens for Application",
+			Action: func(c *cli.Context) error {
+				var (
+					name string
+					err error
+					app *models.Application
+				)
+				Validate.GetInput(&name, "Enter App name : ", func(value string)(message string, isValid bool){
+					return "App name is required", !govalidator.IsNull(value)
+
+				})
+
+				app = new (models.Application)
+				app.Name = name
+				err = app.GetApp()
+
+				if err != nil{
+					fmt.Println(err)
+					return err
+				}
+
+				fmt.Println("App details \n")
 				printAppDetail(app)
+
+				num, err := app.FetchAppTokens()
+
+				if num == 0{
+					fmt.Println(chalk.Green, "No token present for this application.", chalk.Reset)
+				}else{
+					fmt.Println(chalk.Magenta, "Details of Tokens present for given application: \n")
+					for _, token := range app.TokenInfo{
+						fmt.Println("\n")
+						printTokenDetail(token)
+					}
+
+				}
+				return err
+			},
+		},
+		{
+			Name:      "generateAppTokens",
+			Usage:     "Generate Tokens for Application",
+			Action: func(c *cli.Context) error {
+				var (
+					name string
+					err error
+					app *models.Application
+					token *models.Token
+				)
+				Validate.GetInput(&name, "Enter App name : ", func(value string)(message string, isValid bool){
+					return "App name is required", !govalidator.IsNull(value)
+
+				})
+
+				app = new (models.Application)
+
+				app.Name = name
+				err = app.GetApp()
+
+				if err != nil{
+					fmt.Println(err)
+					return err
+				}
+
+
+				fmt.Println("App details \n")
+				printAppDetail(app)
+
+				token = new(models.Token)
+				token.Application = app
+				token.Status = "active"
+				_, err = token.Create()
+
+				if err != nil{
+					fmt.Println(chalk.Red, "Error creating token for application.", chalk.Reset)
+					fmt.Println(chalk.Red, err, chalk.Reset)
+				}else{
+					fmt.Println(chalk.Magenta, "Successfully created token for given application: \n")
+					fmt.Println("\n")
+					printTokenDetail(token)
+				}
+				return err
+			},
+		},
+		{
+			Name:      "downloadPrivateKey",
+			Usage:     "Download private key of a token",
+			Action: func(c *cli.Context) error {
+				var (
+					appId string
+					err error
+					token *models.Token
+				)
+				Validate.GetInput(&appId, "Enter token AppId: ", func(value string)(message string, isValid bool){
+					return "AppId is required", !govalidator.IsNull(value)
+
+				})
+
+				token = new(models.Token)
+				token.AppId = appId
+				err = token.GetToken()
+
+
+				if err != nil{
+					fmt.Println(chalk.Red, "Error fetching token. wrong AppId", chalk.Reset)
+					fmt.Println(chalk.Red, err, chalk.Reset)
+					return err
+				}else{
+					fmt.Println("Token details \n")
+					printTokenDetail(token)
+				}
+
+				//Now download private key ..
+				err = token.DownloadPrivateKey()
+				if err != nil{
+					fmt.Println(chalk.Red, "Error downloading privateKey file", chalk.Reset)
+					fmt.Println(chalk.Red, err, chalk.Reset)
+					return err
+				}else{
+					fmt.Println("\n")
+					fmt.Println(chalk.Green, "Successfully downloaded private key file for token.\n", chalk.Reset)
+				}
 				return err
 			},
 		},
 	}
-
-
 	app.Run(os.Args)
 }
 
@@ -383,6 +501,16 @@ func printAppDetail(app *models.Application){
 	fmt.Println(chalk.Magenta, "Status: ", chalk.Green, app.Status, chalk.Reset)
 }
 
+
+func printTokenDetail(token *models.Token){
+	fmt.Println(chalk.Magenta, "ID: ", chalk.Green, token.Id, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Public Key: ", chalk.Green, token.PublicKey, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Private Key: ", chalk.Green, token.PrivateKey, chalk.Reset)
+	fmt.Println(chalk.Magenta, "App Id: ", chalk.Green, token.AppId, chalk.Reset)
+	fmt.Println(chalk.Magenta, "App Secret: ", chalk.Green, token.AppSecret, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Hash Algorithm: ", chalk.Green, token.HashType, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Status: ", chalk.Green, token.Status, chalk.Reset)
+}
 
 
 
