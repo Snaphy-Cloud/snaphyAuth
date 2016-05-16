@@ -7,7 +7,7 @@ import (
 
 type Application struct {
 	Id int
-	Name string
+	Name string  `orm:"unique"`
 	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
@@ -17,32 +17,36 @@ type Application struct {
 
 
 //Get the  application listed whose application id is given..
-func (app *Application) getApp()(err error){
+func (app *Application) GetApp()(err error){
 	o := orm.NewOrm()
 	o.Using("default")
-	err = o.Read(&app)
+	if app.Id != 0{
+		err = o.Read(app)
+	}else{
+		err = o.Read(app, "Name")
+	}
 	return
 }
 
 
 
 //Used for creating an application....
-func (app *Application) create() (error) {
+func (app *Application) Create() (error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
-	_, err := o.Insert(&app)
+	_, err := o.Insert(app)
 	return err
 }
 
 
 
 //Deactivate a user account...
-func (app *Application) deactivate() (num int64, err error){
+func (app *Application) Deactivate() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	app.Status = StatusMap["DEACTIVATED"]
-	num, err = o.Update(&app)
+	num, err = o.Update(app)
 	//Now also deactivate all token whose...status is active..
 	if err != nil{
 		return 0, err
@@ -55,8 +59,23 @@ func (app *Application) deactivate() (num int64, err error){
 	return
 }
 
+//Deactivate a user account...
+func (app *Application) Activate() (num int64, err error){
+	o := orm.NewOrm()
+	o.Using("default")
+	app.Status = StatusMap["ACTIVATE"]
+	num, err = o.Update(app)
+	//Now also deactivate all token whose...status is active..
+	if err != nil{
+		return 0, err
+	}
+
+	return
+}
+
+
 //Only delete a user by ID
-func (app *Application) delete() (num int64, err error){
+func (app *Application) Delete() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.Delete(app)

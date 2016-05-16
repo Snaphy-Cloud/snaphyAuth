@@ -3,28 +3,25 @@ package main
 import (
 	"os"
 	"github.com/codegangsta/cli"
-	//_ "snaphyAuth/models"
 	"fmt"
-	"github.com/astaxie/beego"
-	"path/filepath"
-	"runtime"
+	"snaphyAuth/models"
+	"github.com/asaskevich/govalidator"
+	"github.com/Snaphy-Cloud/Validate"
+	"github.com/ttacon/chalk"
+	"strconv"
 )
 
-func init()  {
-	//Current path of calling file..
-	_, file, _, _ := runtime.Caller(1)
-	//adding app path..first..
-	appPath, _ := filepath.Abs(filepath.Dir(filepath.Join(file, "../")))
-	fmt.Println(appPath)
-	beego.AppPath = appPath
-}
+
+
+
 
 
 
 func main() {
+
 	app := cli.NewApp()
 	app.Name = "snaphy"
-	app.Usage = "snaphy admin cli control!"
+	app.Usage = "snaphy Admin CLI control!"
 	/*var user string
 	app.Flags = []cli.Flag {
 		cli.StringFlag{
@@ -42,12 +39,19 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:      "createUser",
-			Aliases:     []string{"a"},
+			Aliases:     []string{"cu"},
 			Usage:     "create a user",
 			Action: func(c *cli.Context) error {
 				fmt.Print("Enter firstName: ")
 				var firstName string
 				fmt.Scanln(&firstName)
+				if govalidator.IsNull(firstName){
+					fmt.Print("FirstName is a required field")
+					fmt.Print("Enter firstName: ")
+
+					fmt.Scanln(&firstName)
+				}
+
 
 				fmt.Print("Enter lastName: ")
 				var lastName string
@@ -56,14 +60,330 @@ func main() {
 				fmt.Print("Enter email: ")
 				var email string
 				fmt.Scanln(&email)
+				if !govalidator.IsEmail(email){
+					fmt.Print("Email must a a valid email")
+					fmt.Print("Enter email: ")
+					fmt.Scanln(&email)
+				}
+
+				authUser := new(models.AuthUser)
+				authUser.FirstName = firstName
+				authUser.LastName = lastName
+				authUser.Email = email
+				authUser.Status = "active"
+
+				id, err := authUser.Create()
+				fmt.Println(id, err)
+				if err != nil{
+					fmt.Println(err)
+					os.Exit(1)
+				}
+
+				fmt.Println("User created successfully, ID: ", id)
+				fmt.Println(authUser)
+				return err
+			},
+		},
+		{
+			Name:      "deleteUser",
+			Aliases:     []string{"du"},
+			Usage:     "delete a user. Accept a user id to delete a user from database.",
+			Action: func(c *cli.Context) error {
+				var (
+					id string
+					err error
+				)
+				Validate.GetInput(&id, "Enter user Id: ", func(value string)(message string, isValid bool){
+					return "User Id must be a number", govalidator.IsNumeric(id)
+
+				})
+
+				authUser := new (models.AuthUser)
+				authUser.Id, err = strconv.Atoi(id)
+
+				_, err = authUser.Delete()
+				fmt.Println(chalk.Green, "Successfully deleted User.", chalk.Reset)
+				return err
+			},
+		},
+		{
+			Name:      "fetchUserById",
+			Aliases:     []string{"du"},
+			Usage:     "fetch a user details by . Accept user Id  as input.",
+			Action: func(c *cli.Context) error {
+				var (
+					id string
+					err error
+				)
+				Validate.GetInput(&id, "Enter user Id: ", func(value string)(message string, isValid bool){
+					return "User Id must be a number", govalidator.IsNumeric(id)
+
+				})
+
+				authUser := new (models.AuthUser)
+				authUser.Id, err = strconv.Atoi(id)
+
+				err = authUser.GetUser()
+				fmt.Println(chalk.Magenta, "Details of user fetched: \n", chalk.Reset)
+				fmt.Println(chalk.Magenta, "ID: ", chalk.Green, authUser.Id, chalk.Reset)
+				fmt.Println(chalk.Magenta, "Email: ", chalk.Green, authUser.Email, chalk.Reset)
+				fmt.Println(chalk.Magenta, "First Name: ", chalk.Green, authUser.FirstName, chalk.Reset)
+				fmt.Println(chalk.Magenta, "Last Name: ", chalk.Green, authUser.LastName, chalk.Reset)
+				fmt.Println(chalk.Magenta, "Status: ", chalk.Green, authUser.Status, chalk.Reset)
+
+				return err
+			},
+		},
+		{
+			Name:      "deactivateUser",
+			Usage:     "Deactivated  a user. Sets its status to DEACTIVATED.",
+			Action: func(c *cli.Context) error {
+				var (
+					id string
+					err error
+				)
+				Validate.GetInput(&id, "Enter user Id : ", func(value string)(message string, isValid bool){
+					return "User Id must be a number", govalidator.IsNumeric(id)
+
+				})
+
+				authUser := new (models.AuthUser)
+				authUser.Id, err = strconv.Atoi(id)
+				err = authUser.GetUser()
+				if err != nil{
+					return err
+				}
+				_, err = authUser.Deactivate()
+				fmt.Println(chalk.Green, "Successfully deactivated User.", chalk.Reset)
+				return err
+			},
+		},
+		{
+			Name:      "activateUser",
+			Usage:     "activated  a user. Sets its status to ACTIVATED.",
+			Action: func(c *cli.Context) error {
+				var (
+					id string
+					err error
+				)
+				Validate.GetInput(&id, "Enter user Id : ", func(value string)(message string, isValid bool){
+					return "User Id must be a number", govalidator.IsNumeric(id)
+
+				})
+
+				authUser := new (models.AuthUser)
+				authUser.Id, err = strconv.Atoi(id)
+				err = authUser.GetUser()
+				if err != nil{
+					return err
+				}
+				_, err = authUser.Activate()
+				fmt.Println(chalk.Green, "Successfully activated a User.", chalk.Reset)
+				return err
+			},
+		},
+		{
+			Name:      "fetchUserApp",
+			Usage:     "Fetch Application created by User",
+			Action: func(c *cli.Context) error {
+				var (
+					id string
+					err error
+				)
+				Validate.GetInput(&id, "Enter user Id : ", func(value string)(message string, isValid bool){
+					return "User Id must be a number", govalidator.IsNumeric(id)
+
+				})
+
+				authUser := new (models.AuthUser)
+				authUser.Id, err = strconv.Atoi(id)
+				err = authUser.GetUser()
+				if err != nil{
+					return err
+				}
+
+				num, err := authUser.FetchApps()
+				if num == 0{
+					fmt.Println(chalk.Green, "No application present for this user.", chalk.Reset)
+				}else{
+					fmt.Println(chalk.Magenta, "Details of Apps present for given user: \n")
+					for i :=0; i< len(authUser.Apps); i++{
+						var app *models.Application
+						app = authUser.Apps[i]
+						//Now print data...
+						fmt.Println("\n")
+						printAppDetail(app)
+
+					}
+				}
+				return err
+			},
+		},
 
 
+		{
+			Name:      "createApp",
+			Aliases:     []string{"app"},
+			Usage:     "Create an application",
+			Action: func(c *cli.Context) error {
+				var (
+					email string
+					err error
+					name string
+				)
 
-				return nil
+				Validate.GetInput(&email, "Enter user email address : ", func(value string)(message string, isValid bool){
+					if govalidator.IsNull(email){
+						return "Email address is required", false
+					}
+					return "Email address must be valid", govalidator.IsEmail(email)
+				})
+
+				authUser := new(models.AuthUser)
+				authUser.Email = email
+
+				err = authUser.GetCustomUser("Email")
+				if err != nil{
+					fmt.Println(chalk.Red, "Email not exist! Please provide a valid email.", chalk.Reset)
+					return err
+				}
+
+
+				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
+					if govalidator.IsNull(name){
+						return "You must enter an application name.", false
+					}
+					return "", true
+				})
+
+				app := new(models.Application)
+				app.Owner = authUser
+				app.Name = name
+				app.Status = "active"
+				err = app.Create()
+				fmt.Println(chalk.Green, "Application created successfully\n", chalk.Reset)
+				printAppDetail(app)
+				return err
+			},
+		},
+		{
+			Name:      "deleteApp",
+			Usage:     "Delete an application",
+			Action: func(c *cli.Context) error {
+				var (
+					err error
+					name string
+					num int64
+				)
+
+				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
+
+					return "Application name is required", govalidator.IsNull(name)
+				})
+
+
+				app := new(models.Application)
+				app.Name = name
+
+				num, err = app.Delete()
+				if err != nil{
+					fmt.Println(chalk.Red, "Error deleting application", chalk.Reset)
+				}
+				if num == 0{
+					fmt.Println(chalk.Green, "Application name not found\n", chalk.Reset)
+
+				}else{
+					fmt.Println(chalk.Green, "Application deleted successfully\n", chalk.Reset)
+				}
+
+				return err
+			},
+		},
+		{
+			Name:      "deactivateApp",
+			Usage:     "Deactivate an application",
+			Action: func(c *cli.Context) error {
+				var (
+					err error
+					name string
+					num int64
+				)
+
+				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
+
+					return "Application name is required", govalidator.IsNull(name)
+				})
+
+
+				app := new(models.Application)
+				app.Name = name
+				num, err = app.GetApp()
+
+				if err != nil{
+					fmt.Println(chalk.Red, "Error deactivating an application", chalk.Reset)
+				}
+				if num == 0{
+					fmt.Println(chalk.Green, "Application name not found\n", chalk.Reset)
+
+				}else{
+					fmt.Println(chalk.Green, "Application deactivated successfully\n", chalk.Reset)
+				}
+
+				num, err = app.Deactivate()
+				printAppDetail(app)
+
+				return err
+			},
+		},
+		{
+			Name:      "activateApp",
+			Usage:     "Activate an application",
+			Action: func(c *cli.Context) error {
+				var (
+					err error
+					name string
+					num int64
+				)
+
+				Validate.GetInput(&name, "Enter application name: ", func(value string)(message string, isValid bool){
+
+					return "Application name is required", govalidator.IsNull(name)
+				})
+
+
+				app := new(models.Application)
+				app.Name = name
+				num, err = app.GetApp()
+
+				if err != nil{
+					fmt.Println(chalk.Red, "Error activating application", chalk.Reset)
+				}
+				if num == 0{
+					fmt.Println(chalk.Green, "Application name not found\n", chalk.Reset)
+
+				}else{
+					fmt.Println(chalk.Green, "Application activated successfully\n", chalk.Reset)
+				}
+
+				num, err = app.Activate()
+				printAppDetail(app)
+				return err
 			},
 		},
 	}
+
+
 	app.Run(os.Args)
 }
+
+
+func printAppDetail(app *models.Application){
+	fmt.Println(chalk.Magenta, "ID: ", chalk.Green, app.Id, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Name: ", chalk.Green, app.Name, chalk.Reset)
+	fmt.Println(chalk.Magenta, "Status: ", chalk.Green, app.Status, chalk.Reset)
+}
+
+
+
 
 

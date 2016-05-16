@@ -5,6 +5,7 @@ import (
 	_ "snaphyAuth/routers"
 	_ "snaphyAuth/models"
 	"github.com/astaxie/beego"
+
 	"fmt"
 )
 

@@ -58,7 +58,7 @@ func (token *Token) create() (id int64, err error){
 
 	token.PrivateKey, err = GeneratePem(privateKey)
 	token.PublicKey, err = GeneratePub(privateKey)
-	token.HashType = beego.AppConfig.String("jwt::algorithm")
+	token.HashType = beego.AppConfig.DefaultString("jwt::algorithm", "RS256")
 	token.AppId = uuid.NewV4().String()
 	token.AppSecret = uuid.NewV4().String()
 

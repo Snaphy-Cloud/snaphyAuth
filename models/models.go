@@ -3,10 +3,9 @@ package models
 import (
 	_ "github.com/lib/pq"
 	"github.com/astaxie/beego/orm"
-	"github.com/astaxie/beego"
 	"fmt"
-	_ "os"
 	"os"
+	"github.com/astaxie/beego"
 )
 
 
@@ -22,6 +21,7 @@ func init(){
 	//Initialize status..
 	initStatus()
 }
+
 
 
 
@@ -48,9 +48,9 @@ func registerDb() (err error){
 	orm.RegisterDataBase("default", "postgres", connString )
 	name := "default"
 	force := false
-	verbose := true
+	verbose := beego.AppConfig.DefaultBool("model:debug", false)
 	//Default value of debug is false
-	debug := beego.AppConfig.DefaultBool("model:prefix", false)
+	debug := beego.AppConfig.DefaultBool("model:debug", false)
 	orm.Debug = debug
 	err = orm.RunSyncdb(name, force, verbose)
 	return
@@ -59,7 +59,7 @@ func registerDb() (err error){
 
 
 func RegisterModel(snaphyModel ...interface{}){
-	modelPrefix := beego.AppConfig.String("model::prefix")
+	modelPrefix := beego.AppConfig.DefaultString("model::prefix", "snaphy_auth_")
 	if modelPrefix != "" {
 		orm.RegisterModelWithPrefix(modelPrefix, snaphyModel...)
 	}else{
@@ -71,8 +71,8 @@ func RegisterModel(snaphyModel ...interface{}){
 
 //Get the database name, username and password info for postgresql.
 func getDatabaseCredentials() (string, string, string){
-	database := beego.AppConfig.String("postgres::database")
-	user := beego.AppConfig.String("postgres::user")
-	password := beego.AppConfig.String("postgres::password")
+	database := beego.AppConfig.DefaultString("postgres::database", "robins")
+	user := beego.AppConfig.DefaultString("postgres::user", "robins")
+	password := beego.AppConfig.DefaultString("postgres::password", "12345")
 	return  database, user, password
 }
