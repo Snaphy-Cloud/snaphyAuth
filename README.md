@@ -1,4 +1,4 @@
 ##Snaphy Cloud for Authentication management
 
 
-`Designed by Robins Gupya`
+`Designed by Robins Gupta`
