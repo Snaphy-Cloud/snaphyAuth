@@ -14,7 +14,6 @@ type Application struct {
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 	Owner *AuthUser `orm:"null;rel(fk)"`
 	TokenInfo []* Token `orm:"null;reverse(many)"`
-	Settings *Settings `orm:"rel(one)"` // OneToOne relation
 }
 
 
