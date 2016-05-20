@@ -233,9 +233,6 @@ func (app *NodeApp) createRealm(realm *NodeApp)(err error){
 	return
 }
 
-func (app *NodeApp) createGroup(group *NodeGroup) (err error)  {
-
-}
 
 
 
@@ -255,6 +252,35 @@ func (realm *NodeRealm) CreateIfNotExist() (err error){
 		return ErrorAlreadyPresent
 	}
 }
+
+
+
+func (realm *NodeRealm) createGroup(group *NodeGroup) (err error)  {
+	stmt := `MATCH(realm:Realm{name: {realmName}, appId: {appId} })
+		  MERGE(grp:Group{name: {groupName}, appId: {appId} })
+		 MERGE (realm) - [type: Type] -> (grp)`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"realmName": realm.Name, "appId": realm.AppId, "groupName": group.Name},
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
+//TODO ADD CREATE TOKEN METHOD
+//TODO IN TOKEN FIRST ENCRYPT THE DATA WITH PRIVATE KEY and ADD USERID TO RELATION
+//TODO ADD A METHOD IN TOKEN TO REFRESH WITH AUTOMATIC DELETE FOR BAD TOKENS
+//TODO ADD A METHOD TO CHECK LOGIN
+//TODO ADD METHOD TO DELETE GROUP AND REALM AND TOKENS
+//TODO ADD A METHOD TO LOGOUT FROM ALL TOKEN OF A USER.
+//TODO ADD A METHOD TO SHOW DIFFERENT CURRENT LOGIN TOKENS
+//TODO ADD A METHOD TO ADD LABEL TO A TOKEN
+
+
 
 
 
