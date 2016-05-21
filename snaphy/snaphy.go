@@ -412,7 +412,7 @@ func main() {
 					name string
 					err error
 					app *models.Application
-					token *models.Token
+					token *models.TokenHelper
 				)
 				Validate.GetInput(&name, "Enter App name : ", func(value string)(message string, isValid bool){
 					return "App name is required", !govalidator.IsNull(value)
@@ -433,7 +433,7 @@ func main() {
 				fmt.Println("App details \n")
 				printAppDetail(app)
 
-				token = new(models.Token)
+				token = new(models.TokenHelper)
 				token.Application = app
 				token.Status = "active"
 				_, err = token.Create()
@@ -456,14 +456,14 @@ func main() {
 				var (
 					appId string
 					err error
-					token *models.Token
+					token *models.TokenHelper
 				)
 				Validate.GetInput(&appId, "Enter token AppId: ", func(value string)(message string, isValid bool){
 					return "AppId is required", !govalidator.IsNull(value)
 
 				})
 
-				token = new(models.Token)
+				token = new(models.TokenHelper)
 				token.AppId = appId
 				err = token.GetToken()
 
@@ -502,7 +502,7 @@ func printAppDetail(app *models.Application){
 }
 
 
-func printTokenDetail(token *models.Token){
+func printTokenDetail(token *models.TokenHelper){
 	fmt.Println(chalk.Magenta, "ID: ", chalk.Green, token.Id, chalk.Reset)
 	fmt.Println(chalk.Magenta, "Public Key: ", chalk.Green, token.PublicKey, chalk.Reset)
 	fmt.Println(chalk.Magenta, "Private Key: ", chalk.Green, token.PrivateKey, chalk.Reset)

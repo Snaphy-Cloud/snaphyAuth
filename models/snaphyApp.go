@@ -304,9 +304,9 @@ func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
 
 
 //Create and sign the token..
-func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string){
+func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string) (err error){
 	// Create the token
-	var signToken jwt.Token
+	var signToken *jwt.Token
 
 	if tokenHelper.HashType == "" {
 		return errors.New("No Signing method present in the TokenHelper Database")
@@ -324,7 +324,7 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 		duration = 3600
 	}
 
-	signToken.Claims["exp"] = time.Now().Add(time.Second * duration).Unix() //time after it will be invalid..
+	signToken.Claims["exp"] = time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
 	signToken.Claims["iat"] = time.Now().Unix() //Issuer at time..
 	signToken.Claims["iss"] = userIdentity //user identity..
 	signToken.Claims["grp"] = group.Name //Group with which user belong to.
@@ -343,6 +343,8 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 		}else{
 			fmt.Println(tokenString)
 		}
+
+		return err
 	}else{
 		return errors.New("Private key not present in tokenHelper")
 	}
