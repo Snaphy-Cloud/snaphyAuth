@@ -9,3 +9,6 @@ type ApplicationSettings struct {
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 	Application *Application `orm:"reverse(one)"` // Reverse relationship (optional)
 }
+
+
+//TODO ADD CRUD METHODS HERE

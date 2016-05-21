@@ -7,6 +7,9 @@ import (
 	"github.com/satori/go.uuid"
 	"time"
 	"fmt"
+	"strconv"
+	"strings"
+
 )
 
 //Writing node model definitons..
@@ -33,10 +36,10 @@ type NodeToken struct{
 	AppId int
 	RealmName string
 	Status string
-	UserId int64
+	UserId int
 	added int64
 	lastUpdated int64
-	claims  map[string]interface{}
+	jti string //Unique token provider.
 
 }
 
@@ -105,23 +108,43 @@ func test(){
 			fmt.Println(err)
 		}else{
 			fmt.Println("Successfully created Group")
-			//TODO ADD TAGS-----------------------------------------------------------------------------------------
-			nodeToken := new(NodeToken)
-			//app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string
-			app := new(Application)
-			user := new(AuthUser)
-			user.Id = 3
-			user.GetUser()
-			app.Id = 3
-			app.GetApp()
-			app.FetchAppTokens()
-			if len(app.TokenInfo) != 0{
-				nodeGroup.CreateToken(nodeToken, app.TokenInfo[0], nodeRealm, , user.Id )
+			tag :=  new (NodeTag)
+			tag.RealmName = nodeRealm.Name
+			tag.AppId = nodeApp.Id
+			tag.Name = "Admin"
+			err = nodeRealm.CreateTag(tag)
+			if err != nil{
+				fmt.Println(err)
 			}else{
-				fmt.Println("Error: TokenInfo not present in helper file. add helper data first..")
+
+				nodeToken := new(NodeToken)
+				//app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string
+				app := new(Application)
+				settings := new(ApplicationSettings)
+				settings.Application = app
+				settings.ExpiryDuration = 3600
+				user := new(AuthUser)
+				user.Id = 3
+				user.GetUser()
+				app.Id = 3
+				app.GetApp()
+				app.FetchAppTokens()
+				if len(app.TokenInfo) != 0{
+					//CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string)
+					err = nodeGroup.CreateToken(nodeToken, app, settings, app.TokenInfo[0], nodeRealm, tag, strconv.Itoa(user.Id) )
+					if err != nil{
+						fmt.Println(err)
+					}else{
+						fmt.Println("Successfully created token..")
+						fmt.Println(nodeToken)
+						fmt.Println("\n\n")
+						//(nodeToken *NodeToken) Verify() (valid bool, err error)
+						nodeToken.Verify(app.TokenInfo[0])
+					}
+				}else{
+					fmt.Println("Error: TokenInfo not present in helper file. add helper data first..")
+				}
 			}
-
-
 		}
 	}else{
 		fmt.Println(err)
@@ -322,15 +345,17 @@ func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
 
 
 func (realm *NodeRealm) CreateTag(tag *NodeTag) (err error){
-	stmt := `MERGE (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })`
+	stmt := `MERGE (tag:Label{ name:{labelName}, appId: {appId}, realmName: {realm} })`
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"labelName": tag.Name, "appId": realm.AppId, "realm": {realm.Name} },
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": realm.AppId, "realm": realm.Name},
 	}
 	// Issue the query.
 	err = db.Cypher(&cq)
 	return
 }
+
+
 
 func (tag *NodeTag) Exist() (isExist bool, err error)  {
 	var tagExist []struct{
@@ -367,11 +392,38 @@ func (tag *NodeTag) Delete() (err error){
 	         OPTIONAL MATCH (tag)- [role:Role] -> ()
 	         DETACH DELETE tag, role`
 
-
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"labelName": tag.Name, "appId": tag.AppId, "realm": tag.RealmName},
+		Parameters: neoism.Props{"name": tag.Name, "appId": tag.AppId, "realm": tag.RealmName},
 	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
+
+func (group *NodeGroup) Delete() (err error){
+	stmt := `MATCH p =(begin:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })-[r*]->(END:Token)  DETACH DELETE p`
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"groupName": group.Name, "appId": group.AppId, "realmName": group.RealmName},
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
+func (realm *NodeRealm) Delete() (err error){
+	stmt := `MATCH p = (realm:Realm{name: {realmName}, appId: {appId} }) -[*]->(END) DETACH DELETE p`
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"realmName": realm.Name, "appId": realm.AppId},
+	}
+
 	// Issue the query.
 	err = db.Cypher(&cq)
 	return
@@ -398,9 +450,50 @@ func (token *NodeToken) AddTag(tag *NodeTag, userIdentity string) (err error){
 
 
 
+func (nodeToken *NodeToken) Verify(tokenHelper *TokenHelper) (valid bool, err error){
+
+	parts := strings.Split(nodeToken.TokenString, ".")
+
+	method := jwt.GetSigningMethod(tokenHelper.HashType)
+	err = method.Verify(strings.Join(parts[0:2], "."), parts[2], []byte(tokenHelper.PublicKey))
+
+	if err != nil{
+		fmt.Println("Got error")
+		fmt.Println(err)
+		return false, err
+	}else{
+		fmt.Println("Valid token")
+		return true, err
+	}
+
+/*
+	token, err := jwt.Parse(nodeToken.TokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		//fmt.Println(nodeToken)
+		return token.Claims["jti"], nil
+	})
+
+	if err == nil && token.Valid {
+		fmt.Println("Token is valid!")
+		fmt.Println(token)
+	} else {
+		fmt.Println("Token is InValid!")
+		fmt.Println(err)
+	}
+	return token.Valid, err*/
+}
+
+
+
+
+
+
 
 //Create and sign the token..
-func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string) (err error){
+func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper *TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string) (err error){
 	// Create the token
 	var signToken *jwt.Token
 
@@ -420,24 +513,35 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 		duration = 3600
 	}
 
-	signToken.Claims["exp"] = time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
-	signToken.Claims["iat"] = time.Now().Unix() //Issuer at time..
+	expiryTime := time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
+	issuedAt := time.Now().Unix() //Issuer at time..
+	jti := uuid.NewV4().String() //unique number provider
+	signToken.Claims["exp"] = expiryTime
+	signToken.Claims["iat"] = issuedAt
 	signToken.Claims["iss"] = userIdentity //user identity..
 	signToken.Claims["grp"] = group.Name //Group with which user belong to.
 	signToken.Claims["realm"] = realm.Name
 	//TODO LATER ADD MORE ROLES BY FETCHING RELATION FROM GRAPH DATABASE..
 	signToken.Claims["roles"] = tag.Name
-	signToken.Claims["jti"] = uuid.NewV4().String() //unique number provider
-
-
+	//JUST STORE THIS INSTEAD OF STORING TOKENS..
+	signToken.Claims["jti"] = jti
 
 	if tokenHelper.PrivateKey != ""{
+
 		// Sign and get the complete encoded token as a string
 		tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
 		if err != nil{
 			fmt.Println(err)
 		}else{
-			fmt.Println(tokenString)
+			userId, _ := strconv.Atoi(userIdentity)
+			token.added = issuedAt
+			token.lastUpdated = issuedAt
+			token.AppId = app.Id
+			token.RealmName = realm.Name
+			token.Status = StatusMap["ACTIVE"]
+			token.TokenString = tokenString
+			token.UserId = userId
+			token.jti = jti
 		}
 
 		return err
@@ -451,14 +555,17 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 
 
 
+
+
 //TODO ADD CREATE TOKEN METHOD
 //TODO IN TOKEN FIRST ENCRYPT THE DATA WITH PRIVATE KEY and ADD USERID TO RELATION
 //TODO ADD A METHOD IN TOKEN TO REFRESH WITH AUTOMATIC DELETE FOR BAD TOKENS
 //TODO ADD A METHOD TO CHECK LOGIN
-//TODO ADD METHOD TO DELETE GROUP AND REALM AND TOKENS
+//TODO ADD METHOD TO DELETE GROUP AND REALM AND TOKENS AND TAG
 //TODO ADD A METHOD TO LOGOUT FROM ALL TOKEN OF A USER.
 //TODO ADD A METHOD TO SHOW DIFFERENT CURRENT LOGIN TOKENS
-//TODO ADD A METHOD TO ADD LABEL TO A TOKEN
+
+
 
 
 
