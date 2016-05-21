@@ -24,14 +24,14 @@ type NodeRealm struct{
 type NodeGroup struct {
 	Name string
 	AppId int
-	Realm string
+	RealmName string
 }
 
 
 type NodeToken struct{
 	TokenString string //JWT TOKEN INFO
 	AppId int
-	Realm string
+	RealmName string
 	Status string
 	UserId int64
 	added int64
@@ -42,7 +42,7 @@ type NodeToken struct{
 
 type NodeTag struct{
 	AppId int
-	Realm string
+	RealmName string
 	Name string //unique among a particular realm and application.
 }
 
@@ -70,11 +70,18 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	//Remove this after test..
+	test()
+
+}
 
 
+
+func test(){
+	var err error
 	nodeApp := new(NodeApp)
 	nodeApp.Id = 1
-	nodeApp.Name = "my first app"
+	nodeApp.Name = "my snaphy app"
 	//Adding unique constraint for name...
 	nodeApp.AddUniqueConstraint()
 	//Create app..
@@ -98,15 +105,27 @@ func init() {
 			fmt.Println(err)
 		}else{
 			fmt.Println("Successfully created Group")
-			/*nodeToken := new(NodeToken)
-			nodeGroup.CreateToken(nodeToken, )*/
+			//TODO ADD TAGS-----------------------------------------------------------------------------------------
+			nodeToken := new(NodeToken)
+			//app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string
+			app := new(Application)
+			user := new(AuthUser)
+			user.Id = 3
+			user.GetUser()
+			app.Id = 3
+			app.GetApp()
+			app.FetchAppTokens()
+			if len(app.TokenInfo) != 0{
+				nodeGroup.CreateToken(nodeToken, app.TokenInfo[0], nodeRealm, , user.Id )
+			}else{
+				fmt.Println("Error: TokenInfo not present in helper file. add helper data first..")
+			}
+
+
 		}
 	}else{
 		fmt.Println(err)
 	}
-
-
-
 }
 
 
@@ -256,7 +275,7 @@ func (app *NodeApp) CreateRealm(realm *NodeRealm)(err error){
 		 MERGE (app) - [org: Organization] -> (realm)`
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"name": realm.Name, "appId": app.Id, "appName": app.Name},
+		Parameters: neoism.Props{"realmName": realm.Name, "appId": app.Id, "appName": app.Name},
 	}
 
 	// Issue the query.
@@ -275,7 +294,6 @@ func (realm *NodeRealm) CreateIfNotExist() (err error){
 			Statement: stmt,
 			Parameters: neoism.Props{"name": realm.Name, "appId": realm.AppId},
 		}
-
 		// Issue the query.
 		err = db.Cypher(&cq)
 		return
@@ -287,8 +305,8 @@ func (realm *NodeRealm) CreateIfNotExist() (err error){
 
 
 func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
-	stmt := `MATCH(realm:Realm{name: {realmName}, appId: {appId} })
-		  MERGE(grp:Group{name: {groupName}, appId: {appId} })
+	stmt := `MATCH (realm:Realm{name: {realmName}, appId: {appId} })
+		 MERGE (grp:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })
 		 MERGE (realm) - [type: Type] -> (grp)`
 
 	cq := neoism.CypherQuery{
@@ -300,6 +318,84 @@ func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
 	err = db.Cypher(&cq)
 	return
 }
+
+
+
+func (realm *NodeRealm) CreateTag(tag *NodeTag) (err error){
+	stmt := `MERGE (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })`
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": realm.AppId, "realm": {realm.Name} },
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+func (tag *NodeTag) Exist() (isExist bool, err error)  {
+	var tagExist []struct{
+		Count int `json:"count"`
+	}
+	stmt := `MATCH (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} }) RETURN count(tag) AS count`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": tag.AppId, "realm": tag.RealmName},
+		Result: &tagExist,
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	if err != nil{
+		return false, err
+	}
+
+	if len(tagExist) != 0{
+		if tagExist[0].Count == 0{
+			return false, err
+		}else{
+			return true, err
+		}
+	}else{
+		return false, err
+	}
+}
+
+
+func (tag *NodeTag) Delete() (err error){
+	stmt := `MATCH (tag:Label{ name:{name}, appId: {appId}, realmName: {realm} })
+	         OPTIONAL MATCH (tag)- [role:Role] -> ()
+	         DETACH DELETE tag, role`
+
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": tag.AppId, "realm": tag.RealmName},
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
+
+//Add a tag with relationship..
+func (token *NodeToken) AddTag(tag *NodeTag, userIdentity string) (err error){
+	stmt := `MATCH (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })
+	         MATCH (token:Token) WHERE token.name = {tokenString} AND token.appId = {appId} AND token.realmName = {realm}
+	         MERGE (tag) - [role:Role] -> (token)`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": token.AppId, "realm": token.RealmName, "tokenString": token.TokenString, "userId": userIdentity },
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
 
 
 
@@ -331,7 +427,7 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 	signToken.Claims["realm"] = realm.Name
 	//TODO LATER ADD MORE ROLES BY FETCHING RELATION FROM GRAPH DATABASE..
 	signToken.Claims["roles"] = tag.Name
-	signToken.Claims["jti"] = uuid.NewV4().String()
+	signToken.Claims["jti"] = uuid.NewV4().String() //unique number provider
 
 
 

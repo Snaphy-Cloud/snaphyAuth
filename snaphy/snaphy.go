@@ -14,11 +14,7 @@ import (
 
 
 
-
-
-
 func main() {
-
 	app := cli.NewApp()
 	app.Name = "snaphy"
 	app.Usage = "snaphy Admin CLI control!"
