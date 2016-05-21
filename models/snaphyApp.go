@@ -86,8 +86,8 @@ func init() {
 func test(){
 	var err error
 	nodeApp := new(NodeApp)
-	nodeApp.Id = 1
-	nodeApp.Name = "my snaphy app"
+	nodeApp.Id = 3
+	nodeApp.Name = "snaphyAdminAuth"
 	//Adding unique constraint for name...
 	nodeApp.AddUniqueConstraint()
 	//Create app..
@@ -98,6 +98,7 @@ func test(){
 
 	nodeRealm := new(NodeRealm)
 	nodeRealm.Name = "snaphyTest"
+
 	nodeRealm.AppId = nodeApp.Id
 
 	//Add realm.*:
@@ -174,6 +175,7 @@ func (app *NodeApp)Exist()(exist bool, err error){
 
 	// Issue the query.
 	err = db.Cypher(&cq)
+
 	if err != nil{
 		return false, err
 	}
