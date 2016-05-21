@@ -35,12 +35,15 @@ type NodeToken struct{
 	TokenString string //JWT TOKEN INFO
 	AppId int
 	RealmName string
+	GroupName string
 	Status string
 	UserId int
-	added int64
-	lastUpdated int64
-	jti string //Unique token provider.
-
+	Added int64
+	Expiry int64
+	LastUpdated int64
+	JTI string //Unique token provider.
+	//TODO LATER CONVERT IT TO ARRAY TYPE
+	Roles string
 }
 
 type NodeTag struct{
@@ -135,11 +138,13 @@ func test(){
 					if err != nil{
 						fmt.Println(err)
 					}else{
-						fmt.Println("Successfully created token..")
-						fmt.Println(nodeToken)
-						fmt.Println("\n\n")
+
 						//(nodeToken *NodeToken) Verify() (valid bool, err error)
-						nodeToken.Verify(app.TokenInfo[0])
+						nodeToken.VerifyHash(app.TokenInfo[0])
+						fmt.Println("\n\n")
+						nodeToken.VerifyAndParse(app.TokenInfo[0])
+						expired, _ := nodeToken.CheckExpired()
+						fmt.Println(expired)
 					}
 				}else{
 					fmt.Println("Error: TokenInfo not present in helper file. add helper data first..")
@@ -449,8 +454,8 @@ func (token *NodeToken) AddTag(tag *NodeTag, userIdentity string) (err error){
 
 
 
-
-func (nodeToken *NodeToken) Verify(tokenHelper *TokenHelper) (valid bool, err error){
+//Verify the token before parsing .. the token just checks if the tokens ia a valid one.
+func (nodeToken *NodeToken) VerifyHash(tokenHelper *TokenHelper) (valid bool, err error){
 
 	parts := strings.Split(nodeToken.TokenString, ".")
 
@@ -458,34 +463,55 @@ func (nodeToken *NodeToken) Verify(tokenHelper *TokenHelper) (valid bool, err er
 	err = method.Verify(strings.Join(parts[0:2], "."), parts[2], []byte(tokenHelper.PublicKey))
 
 	if err != nil{
-		fmt.Println("Got error")
-		fmt.Println(err)
+
 		return false, err
 	}else{
-		fmt.Println("Valid token")
 		return true, err
 	}
 
-/*
-	token, err := jwt.Parse(nodeToken.TokenString, func(token *jwt.Token) (interface{}, error) {
+}
+
+//Parses the token value..And also validates the algorithm..
+func (nodeToken *NodeToken) VerifyAndParse(tokenHelper *TokenHelper) (valid bool, err error){
+	var token *jwt.Token
+	token, err = jwt.Parse(nodeToken.TokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		//fmt.Println(nodeToken)
-		return token.Claims["jti"], nil
+		return []byte(tokenHelper.PublicKey), nil
 	})
 
-	if err == nil && token.Valid {
-		fmt.Println("Token is valid!")
-		fmt.Println(token)
-	} else {
-		fmt.Println("Token is InValid!")
-		fmt.Println(err)
-	}
-	return token.Valid, err*/
+	nodeToken.Added = int64(token.Claims["iat"].(float64))
+	nodeToken.Expiry = int64(token.Claims["exp"].(float64))
+	nodeToken.JTI = token.Claims["jti"].(string)
+	nodeToken.GroupName = token.Claims["grp"].(string)
+	nodeToken.Roles = token.Claims["roles"].(string)
+	nodeToken.RealmName = token.Claims["realm"].(string)
+	return token.Valid, err
 }
 
+//Check if token is expired or not valid or valid...
+//TRUE IF EXPIRED AND FALSE IF NOT
+func (nodeToken *NodeToken) CheckExpired() (expired bool, err error){
+	if nodeToken.Expiry == 0 {
+		return true, errors.New("Expiry claim not present in NodeToken model.")
+	}else{
+		now := time.Now().Unix()
+		//TODO ALSO CHECK THE STATUS IN GRAPHDATABASE FIRST
+		//TODO CREATE METHOD GETSTATUS() in NODE TOKEN
+		if now >= nodeToken.Expiry{
+			return true, nil
+		}else{
+			return false, nil
+		}
+	}
+
+}
+
+
+//TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN
+//TODO WRITE A METHOD TO FIND IF THE TOKEN ALREADY PRESENT IN THE DATABASE..
 
 
 
@@ -531,17 +557,17 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 		// Sign and get the complete encoded token as a string
 		tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
 		if err != nil{
-			fmt.Println(err)
+			return err
 		}else{
 			userId, _ := strconv.Atoi(userIdentity)
-			token.added = issuedAt
-			token.lastUpdated = issuedAt
+			token.Added = issuedAt
+			token.LastUpdated = issuedAt
 			token.AppId = app.Id
 			token.RealmName = realm.Name
 			token.Status = StatusMap["ACTIVE"]
 			token.TokenString = tokenString
 			token.UserId = userId
-			token.jti = jti
+			token.JTI = jti
 		}
 
 		return err
@@ -557,7 +583,10 @@ func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings
 
 
 
-//TODO ADD CREATE TOKEN METHOD
+//TODO ADD CREATE TOKEN METHOD AND ATTACH TO GRAPH
+//TODO ARRANGE ALL MODELS TO DIFFERENT FOLDER
+//TODO WRITE TEST CASES FOR METHODS
+//TODO WRITE GRAPHQL METHOD FOR FOR DATA ENDPOINT
 //TODO IN TOKEN FIRST ENCRYPT THE DATA WITH PRIVATE KEY and ADD USERID TO RELATION
 //TODO ADD A METHOD IN TOKEN TO REFRESH WITH AUTOMATIC DELETE FOR BAD TOKENS
 //TODO ADD A METHOD TO CHECK LOGIN
