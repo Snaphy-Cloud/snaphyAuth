@@ -13,7 +13,8 @@ type Application struct {
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
 	Owner *AuthUser `orm:"null;rel(fk)"`
-	TokenInfo []* Token `orm:"null;reverse(many)"`
+	TokenInfo []* TokenHelper `orm:"null;reverse(many)"`
+	Settings *ApplicationSettings  `orm:"rel(one)"` // OneToOne relation
 }
 
 
@@ -69,7 +70,7 @@ func (app *Application) Deactivate() (num int64, err error){
 
 	//Now also deactivate all its application
 	//Only change status of those token whose status is Active
-	_, err = o.QueryTable(new(Token)).Filter("application_id", app.Id).Filter("status", StatusMap["ACTIVE"]).Update(orm.Params{
+	_, err = o.QueryTable(new(TokenHelper)).Filter("application_id", app.Id).Filter("status", StatusMap["ACTIVE"]).Update(orm.Params{
 		"status": StatusMap["DEACTIVATED"],
 	})
 	return

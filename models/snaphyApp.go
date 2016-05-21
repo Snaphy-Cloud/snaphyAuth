@@ -3,6 +3,10 @@ package models
 import (
 	"github.com/jmcvetta/neoism"
 	"errors"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/satori/go.uuid"
+	"time"
+	"fmt"
 )
 
 //Writing node model definitons..
@@ -25,12 +29,14 @@ type NodeGroup struct {
 
 
 type NodeToken struct{
-	TokenId string //JWT TOKEN INFO
+	TokenString string //JWT TOKEN INFO
 	AppId int
 	Realm string
 	Status string
-	added string
-	lastUpdated string
+	UserId int64
+	added int64
+	lastUpdated int64
+	claims  map[string]interface{}
 
 }
 
@@ -76,6 +82,31 @@ func init() {
 	nodeApp.Status = StatusMap["ACTIVE"]
 	nodeApp.UpdateStatus()
 	//nodeApp.DeleteApp()
+
+	nodeRealm := new(NodeRealm)
+	nodeRealm.Name = "snaphyTest"
+	nodeRealm.AppId = nodeApp.Id
+
+	//Add realm.*:
+	err = nodeApp.CreateRealm(nodeRealm)
+	if err == nil{
+		nodeGroup := new(NodeGroup)
+		nodeGroup.AppId = nodeApp.Id
+		nodeGroup.Name = "customer"
+		err = nodeRealm.CreateGroup(nodeGroup)
+		if err != nil{
+			fmt.Println(err)
+		}else{
+			fmt.Println("Successfully created Group")
+			/*nodeToken := new(NodeToken)
+			nodeGroup.CreateToken(nodeToken, )*/
+		}
+	}else{
+		fmt.Println(err)
+	}
+
+
+
 }
 
 
@@ -219,7 +250,7 @@ func (realm *NodeRealm) Exist() (exist bool, err error){
 
 
 //Create realm with relationship..if not exists..first check if it already exists for showing custom error
-func (app *NodeApp) createRealm(realm *NodeApp)(err error){
+func (app *NodeApp) CreateRealm(realm *NodeRealm)(err error){
 	stmt := `MATCH (app:Application{name: {appName}, id: {appId} })
 		 MERGE(realm:Realm{name: {realmName}, appId: {appId} })
 		 MERGE (app) - [org: Organization] -> (realm)`
@@ -255,7 +286,7 @@ func (realm *NodeRealm) CreateIfNotExist() (err error){
 
 
 
-func (realm *NodeRealm) createGroup(group *NodeGroup) (err error)  {
+func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
 	stmt := `MATCH(realm:Realm{name: {realmName}, appId: {appId} })
 		  MERGE(grp:Group{name: {groupName}, appId: {appId} })
 		 MERGE (realm) - [type: Type] -> (grp)`
@@ -269,6 +300,57 @@ func (realm *NodeRealm) createGroup(group *NodeGroup) (err error)  {
 	err = db.Cypher(&cq)
 	return
 }
+
+
+
+//Create and sign the token..
+func (group *NodeGroup) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper TokenHelper, realm *NodeRealm, tag *NodeTag, userIdentity string){
+	// Create the token
+	var signToken jwt.Token
+
+	if tokenHelper.HashType == "" {
+		return errors.New("No Signing method present in the TokenHelper Database")
+	}else if(tokenHelper.HashType == "RS256"){
+		signToken = jwt.New(jwt.SigningMethodRS256)
+	}else{
+		//Right now default is RS256
+		signToken = jwt.New(jwt.SigningMethodRS256)
+	}
+
+	//signToken := jwt.GetSigningMethod(tokenHelper.HashType)
+
+	duration := settings.ExpiryDuration
+	if duration == 0 {
+		duration = 3600
+	}
+
+	signToken.Claims["exp"] = time.Now().Add(time.Second * duration).Unix() //time after it will be invalid..
+	signToken.Claims["iat"] = time.Now().Unix() //Issuer at time..
+	signToken.Claims["iss"] = userIdentity //user identity..
+	signToken.Claims["grp"] = group.Name //Group with which user belong to.
+	signToken.Claims["realm"] = realm.Name
+	//TODO LATER ADD MORE ROLES BY FETCHING RELATION FROM GRAPH DATABASE..
+	signToken.Claims["roles"] = tag.Name
+	signToken.Claims["jti"] = uuid.NewV4().String()
+
+
+
+	if tokenHelper.PrivateKey != ""{
+		// Sign and get the complete encoded token as a string
+		tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
+		if err != nil{
+			fmt.Println(err)
+		}else{
+			fmt.Println(tokenString)
+		}
+	}else{
+		return errors.New("Private key not present in tokenHelper")
+	}
+}
+
+
+
+
 
 
 //TODO ADD CREATE TOKEN METHOD

@@ -10,13 +10,14 @@ import (
 	"encoding/pem"
 	"crypto/x509"
 	"io/ioutil"
-	"github.com/ory-am/osin-storage/Godeps/_workspace/src/github.com/go-errors/errors"
+	"errors"
 )
 
-type Token struct  {
+
+type TokenHelper struct  {
 	Id int
-	PublicKey string `orm:"unique;size(2050)"`
-	PrivateKey string `orm:"unique;size(2050)"`
+	PublicKey string `orm:"unique;size(2050)"` //Used to decrypt
+	PrivateKey string `orm:"unique;size(2050)"` //Used to envrypt
 	HashType string
 	AppSecret string `orm:"unique"`
 	AppId string `orm:"unique"`
@@ -27,34 +28,34 @@ type Token struct  {
 }
 
 
+
 func init(){
 	//TODO Test performance benchmark for these key generation
 }
 
 
-//Method for generating token..
 
+//Method for generating token..
 //Get token
-func (token *Token) GetToken()(err error){
+func (token *TokenHelper) GetToken()(err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	if token.Id != 0{
 		err = o.Read(token)
 		return
-	}else if token.AppId != ""{
+	}else if token.AppId != "" {
 		err = o.Read(token, "AppId")
 		return
 	}else{
 		return errors.New("You must provide atleast ID or Application Id to fetch a token details")
 	}
-
 }
 
 
 
 //Used for creating a token..
 //Only Application
-func (token *Token) Create() (id int64, err error){
+func (token *TokenHelper) Create() (id int64, err error){
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
@@ -64,8 +65,8 @@ func (token *Token) Create() (id int64, err error){
 	if err != nil{
 		return
 	}
-	//Now store private key
 
+	//Now store private key
 	token.PrivateKey, err = GeneratePem(privateKey)
 	token.PublicKey, err = GeneratePub(privateKey)
 	token.HashType = beego.AppConfig.DefaultString("jwt::algorithm", "RS256")
@@ -82,7 +83,8 @@ func (token *Token) Create() (id int64, err error){
 
 
 
-func (token *Token) DownloadPrivateKey() (err error){
+
+func (token *TokenHelper) DownloadPrivateKey() (err error){
 	// write the whole body at once
 	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PrivateKey), 0644)
 	return
@@ -90,7 +92,8 @@ func (token *Token) DownloadPrivateKey() (err error){
 }
 
 
-func (token *Token) DownloadPublicKey() (err error){
+
+func (token *TokenHelper) DownloadPublicKey() (err error){
 	// write the whole body at once
 	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PublicKey), 0644)
 	return err
@@ -102,7 +105,7 @@ func (token *Token) DownloadPublicKey() (err error){
 
 
 //Only delete a token by ID
-func (token *Token) Delete() (num int64, err error){
+func (token *TokenHelper) Delete() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.Delete(token)
@@ -124,7 +127,6 @@ func GeneratePem(privateKey *rsa.PrivateKey)(string, error){
 
 	return string(pemdata), nil
 }
-
 
 
 
