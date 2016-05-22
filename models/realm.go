@@ -44,7 +44,7 @@ func (realm *Realm) Exist() (exist bool, err error){
 		Count int `json:"count"`
 	}
 
-	stmt := `MATCH (realm:Realm) WHERE realm.name = {name} AND realm.appId = {appId} RETURN count(app) as count`
+	stmt := `MATCH (realm:Realm) WHERE realm.name = {name} AND realm.appId = {appId} RETURN count(realm) as count`
 	cq := neoism.CypherQuery{
 		Statement: stmt,
 		Parameters: neoism.Props{"name": realm.Name, "appId": realm.AppId},
@@ -93,6 +93,8 @@ func (realm *Realm) CreateIfNotExist() (err error){
 		return errorMessage.ErrorAlreadyPresent
 	}
 }
+
+
 
 //Merge if exist also create relationship with app..dont create realm without relationship
 func (realm *Realm) Create() (err error){

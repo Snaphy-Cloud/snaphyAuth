@@ -17,8 +17,7 @@ type TokenTag struct{
 //Will throw error if the struct doesn't implements Graph Interface..
 var _ Interfaces.Graph = (*TokenTag)(nil)
 
-
-
+//TODO add all graph methods INTERFACE..
 func (tag *TokenTag) Exist() (isExist bool, err error)  {
 	var tagExist []struct{
 		Count int `json:"count"`
