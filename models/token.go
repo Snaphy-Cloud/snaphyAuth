@@ -1,163 +1,161 @@
 package models
 
 import (
-	"time"
-	"github.com/astaxie/beego/orm"
-	"crypto/rand"
-	"crypto/rsa"
-	"github.com/satori/go.uuid"
-	"github.com/astaxie/beego"
-	"encoding/pem"
-	"crypto/x509"
-	"io/ioutil"
+	"github.com/jmcvetta/neoism"
+	"strings"
+	"fmt"
 	"errors"
+	"github.com/dgrijalva/jwt-go"
+	"time"
+	"snaphyAuth/Interfaces"
 )
 
+type Token struct{
+	TokenString string //JWT TOKEN INFO
+	AppId int
+	RealmName string
+	GroupName string
+	Status string
+	UserId int
+	Added int64
+	Expiry int64
+	LastUpdated int64
+	JTI string //Unique token provider.
+        // TODO LATER CONVERT IT TO ARRAY TYPE
+	Roles []string
+}
 
-type TokenHelper struct  {
-	Id int
-	PublicKey string `orm:"unique;size(2050)"` //Used to decrypt
-	PrivateKey string `orm:"unique;size(2050)"` //Used to envrypt
-	HashType string
-	AppSecret string `orm:"unique"`
-	AppId string `orm:"unique"`
-	Application *Application `orm:"rel(fk)"`
-	Status string `orm:"default(active)"`
-	Added time.Time `orm:"auto_now_add;type(datetime)"`
-	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
+
+//Check interface implementation..
+//Will throw error if the struct doesn't implements Graph Interface..
+var _ Interfaces.Graph = (*Token)(nil)
+
+
+
+
+
+//Add a tag with relationship..
+func (token *Token) AddTag(tag *TokenTag) (err error){
+	stmt := `MATCH (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })
+	         MATCH (token:Token) WHERE token.name = {tokenString} AND token.appId = {appId} AND token.realmName = {realm}
+	         MERGE (tag) - [role:Role] -> (token)`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": token.AppId, "realm": token.RealmName, "tokenString": token.TokenString},
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
 }
 
 
 
-func init(){
-	//TODO Test performance benchmark for these key generation
-}
+//Verify the token before parsing .. the token just checks if the tokens ia a valid one.
+func (nodeToken *Token) VerifyHash(tokenHelper *TokenHelper) (valid bool, err error){
 
+	parts := strings.Split(nodeToken.TokenString, ".")
 
+	method := jwt.GetSigningMethod(tokenHelper.HashType)
+	err = method.Verify(strings.Join(parts[0:2], "."), parts[2], []byte(tokenHelper.PublicKey))
 
-//Method for generating token..
-//Get token
-func (token *TokenHelper) GetToken()(err error){
-	o := orm.NewOrm()
-	o.Using("default")
-	if token.Id != 0{
-		err = o.Read(token)
-		return
-	}else if token.AppId != "" {
-		err = o.Read(token, "AppId")
-		return
+	if err != nil{
+
+		return false, err
 	}else{
-		return errors.New("You must provide atleast ID or Application Id to fetch a token details")
-	}
-}
-
-
-
-//Used for creating a token..
-//Only Application
-func (token *TokenHelper) Create() (id int64, err error){
-	// insert
-	o := orm.NewOrm()
-	o.Using("default")
-	var privateKey *rsa.PrivateKey
-	//generate private keys.
-	privateKey, err = generateKeys()
-	if err != nil{
-		return
+		return true, err
 	}
 
-	//Now store private key
-	token.PrivateKey, err = GeneratePem(privateKey)
-	token.PublicKey, err = GeneratePub(privateKey)
-	token.HashType = beego.AppConfig.DefaultString("jwt::algorithm", "RS256")
-	token.AppId = uuid.NewV4().String()
-	token.AppSecret = uuid.NewV4().String()
-
-	if err != nil{
-		return  0, err
-	}
-	//Get the appId.
-	id, err = o.Insert(token)
-	return
 }
 
 
 
 
-func (token *TokenHelper) DownloadPrivateKey() (err error){
-	// write the whole body at once
-	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PrivateKey), 0644)
-	return
+//Parses the token value..And also validates the algorithm..
+func (nodeToken *Token) VerifyAndParse() (valid bool, err error){
+	var token *jwt.Token
+	token, err = jwt.Parse(nodeToken.TokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		//Also check the token expiry date
+		//Also check if the token in present in the db.
 
-}
-
-
-
-func (token *TokenHelper) DownloadPublicKey() (err error){
-	// write the whole body at once
-	err = ioutil.WriteFile(token.AppId + ".pem", []byte(token.PublicKey), 0644)
-	return err
-
-}
-
-
-
-
-
-//Only delete a token by ID
-func (token *TokenHelper) Delete() (num int64, err error){
-	o := orm.NewOrm()
-	o.Using("default")
-	num, err = o.Delete(token)
-	return
-}
-
-
-
-
-
-//Generate private key in pem format..
-func GeneratePem(privateKey *rsa.PrivateKey)(string, error){
-	pemdata := pem.EncodeToMemory(
-		&pem.Block{
-			Type: "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-		},
-	)
-
-	return string(pemdata), nil
-}
-
-
-
-
-//http://stackoverflow.com/questions/13555085/save-and-load-crypto-rsa-privatekey-to-and-from-the-disk
-//Generate public  key file pub format..
-func GeneratePub(privateKey *rsa.PrivateKey)(string, error){
-	PubASN1, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		// do something about it
-		return "", err
-	}
-
-	pubBytes := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PUBLIC KEY",
-		Bytes: PubASN1,
+		return LookUpKey(token.Claims["kid"].(string))
 	})
 
-	return string(pubBytes), err
+	nodeToken.Added = int64(token.Claims["iat"].(float64))
+	nodeToken.Expiry = int64(token.Claims["exp"].(float64))
+	nodeToken.JTI = token.Claims["jti"].(string)
+	nodeToken.GroupName = token.Claims["grp"].(string)
+	nodeToken.Roles = token.Claims["roles"].(string)
+	nodeToken.RealmName = token.Claims["realm"].(string)
+	return token.Valid, err
+}
+
+
+//Find the public key with the provided data..
+func LookUpKey(appId string) (publicKey []byte, err error){
+	if appId == ""{
+		return nil, errors.New("Error: appId value is null")
+	}
+	tokenHelper := new(TokenHelper)
+	tokenHelper.AppId = appId
+	err = tokenHelper.GetToken()
+
+	if err != nil {
+		return nil, err
+	}else{
+		return []byte(tokenHelper.PublicKey), nil
+	}
 }
 
 
 
+//Check if token is expired or not valid or valid...
+//TRUE IF EXPIRED AND FALSE IF NOT
+func (nodeToken *Token) CheckExpired() (expired bool, err error){
+	if nodeToken.Expiry == 0 {
+		return true, errors.New("Expiry claim not present in Token model.")
+	}else{
+		now := time.Now().Unix()
+		//TODO ALSO CHECK THE STATUS IN GRAPHDATABASE FIRST
+		//TODO CREATE METHOD GETSTATUS() in NODE TOKEN
+		if now >= nodeToken.Expiry{
+			return true, nil
+		}else{
+			return false, nil
+		}
+	}
 
-
-
-//Method to generate public and private keys..
-func generateKeys() (privateKey *rsa.PrivateKey, err error){
-	// Generate RSA Keys
-	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	return
 }
+
+
+//Find the token from the database and populate the data..
+//Provide the nodeToken with jwt field.
+func (nodeToken *Token) GetToken() (err error){
+	/*
+	TokenString string //JWT TOKEN INFO
+	AppId int
+	RealmName string
+	GroupName string
+	Status string
+	UserId int
+	Added int64
+	Expiry int64
+	LastUpdated int64
+	JTI string //Unique token provider.
+	Roles string*/
+	//First try to match the token..
+	/*stmt := `MATCH (app: Application{name: {appName}, id: {appId} })
+	         MATCH (app)-[org:Organization]->()-[type:Type]->()-[identity:Identity{userId: {userId} }]->(token:Token{jti: {jti}})`*/
+	stmt := `MATCH (token:Token{jti: {jti} }) RETURN token.status AS status`
+}
+
+
+//TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN
+//TODO WRITE A METHOD TO FIND IF THE TOKEN ALREADY PRESENT IN THE DATABASE..
 
 

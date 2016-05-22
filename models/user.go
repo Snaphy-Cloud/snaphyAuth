@@ -7,7 +7,7 @@ import (
 
 
 
-type AuthUser struct {
+type User struct {
 	Id int
 	FirstName string
 	LastName string
@@ -23,7 +23,7 @@ type AuthUser struct {
 
 
 //Get user..
-func (user *AuthUser)GetUser() (err error){
+func (user *User)GetUser() (err error){
 	if user.Id != 0{
 		o := orm.NewOrm()
 		o.Using("default")
@@ -38,7 +38,7 @@ func (user *AuthUser)GetUser() (err error){
 }
 
 //Get user..
-func (user *AuthUser) GetCustomUser(key string) (err error){
+func (user *User) GetCustomUser(key string) (err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	err = o.Read(user, key)
@@ -46,7 +46,7 @@ func (user *AuthUser) GetCustomUser(key string) (err error){
 }
 
 
-func (user *AuthUser) FetchApps() (num int64, err error) {
+func (user *User) FetchApps() (num int64, err error) {
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.LoadRelated(user, "Apps")
@@ -57,7 +57,7 @@ func (user *AuthUser) FetchApps() (num int64, err error) {
 
 
 //Used for registering a user....
-func (user *AuthUser) Create() (id int64, err error) {
+func (user *User) Create() (id int64, err error) {
 	// insert
 	o := orm.NewOrm()
 	o.Using("default")
@@ -67,7 +67,7 @@ func (user *AuthUser) Create() (id int64, err error) {
 
 
 //Deactivate a user account...
-func (user *AuthUser) Deactivate() (int64, error){
+func (user *User) Deactivate() (int64, error){
 	o := orm.NewOrm()
 	o.Using("default")
 	user.Status = StatusMap["DEACTIVATED"]
@@ -84,7 +84,7 @@ func (user *AuthUser) Deactivate() (int64, error){
 }
 
 //Deactivate a user account...
-func (user *AuthUser) Activate() (int64, error){
+func (user *User) Activate() (int64, error){
 	o := orm.NewOrm()
 	o.Using("default")
 	user.Status = StatusMap["ACTIVE"]
@@ -97,7 +97,7 @@ func (user *AuthUser) Activate() (int64, error){
 
 
 //Only delete a user by ID
-func (user *AuthUser) Delete() (num int64, err error){
+func (user *User) Delete() (num int64, err error){
 	o := orm.NewOrm()
 	o.Using("default")
 	num, err = o.Delete(user)

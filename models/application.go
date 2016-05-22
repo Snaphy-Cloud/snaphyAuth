@@ -12,7 +12,7 @@ type Application struct {
 	Status string `orm:"default(active)"`
 	Added time.Time `orm:"auto_now_add;type(datetime)"`
 	LastUpdated time.Time `orm:"auto_now;type(datetime)"`
-	Owner *AuthUser `orm:"null;rel(fk)"`
+	Owner *User `orm:"null;rel(fk)"`
 	TokenInfo []* TokenHelper `orm:"null;reverse(many)"`
 	Settings *ApplicationSettings  `orm:"rel(one); null"` // OneToOne relation
 }

@@ -11,7 +11,7 @@ import (
 
 func init(){
 	//First register the model..
-	RegisterModel( new(AuthUser), new(Application), new(TokenHelper), new(DbIndex), new(ApplicationSettings) )
+	RegisterModel( new(User), new(Application), new(TokenHelper), new(ApplicationSettings) )
 	//Now register the database..
 	err := registerDb()
 	if err != nil{
