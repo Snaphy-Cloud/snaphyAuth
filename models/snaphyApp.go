@@ -179,7 +179,6 @@ func (app *NodeApp)Exist()(exist bool, err error){
 	if err != nil{
 		return false, err
 	}
-
 	if len(appExist) != 0{
 		if appExist[0].Count == 0{
 			return false, err
@@ -338,12 +337,10 @@ func (realm *NodeRealm) CreateGroup(group *NodeGroup) (err error)  {
 	stmt := `MATCH (realm:Realm{name: {realmName}, appId: {appId} })
 		 MERGE (grp:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })
 		 MERGE (realm) - [type: Type] -> (grp)`
-
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"realmName": realm.Name, "appId": realm.AppId, "groupName": group.Name},
+		Parameters: neoism.Props{"realmName":  realm.Name, "appId": realm.AppId, "groupName": group.Name},
 	}
-
 	// Issue the query.
 	err = db.Cypher(&cq)
 	return
@@ -439,14 +436,14 @@ func (realm *NodeRealm) Delete() (err error){
 
 
 //Add a tag with relationship..
-func (token *NodeToken) AddTag(tag *NodeTag, userIdentity string) (err error){
+func (token *NodeToken) AddTag(tag *NodeTag) (err error){
 	stmt := `MATCH (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })
 	         MATCH (token:Token) WHERE token.name = {tokenString} AND token.appId = {appId} AND token.realmName = {realm}
 	         MERGE (tag) - [role:Role] -> (token)`
 
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"labelName": tag.Name, "appId": token.AppId, "realm": token.RealmName, "tokenString": token.TokenString, "userId": userIdentity },
+		Parameters: neoism.Props{"labelName": tag.Name, "appId": token.AppId, "realm": token.RealmName, "tokenString": token.TokenString},
 	}
 
 	// Issue the query.
@@ -473,6 +470,9 @@ func (nodeToken *NodeToken) VerifyHash(tokenHelper *TokenHelper) (valid bool, er
 
 }
 
+
+
+
 //Parses the token value..And also validates the algorithm..
 func (nodeToken *NodeToken) VerifyAndParse(tokenHelper *TokenHelper) (valid bool, err error){
 	var token *jwt.Token
@@ -481,6 +481,9 @@ func (nodeToken *NodeToken) VerifyAndParse(tokenHelper *TokenHelper) (valid bool
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
+		//Also check the token expiry date
+		//Also check if the token in present in the db.
+
 		return []byte(tokenHelper.PublicKey), nil
 	})
 
@@ -492,6 +495,8 @@ func (nodeToken *NodeToken) VerifyAndParse(tokenHelper *TokenHelper) (valid bool
 	nodeToken.RealmName = token.Claims["realm"].(string)
 	return token.Valid, err
 }
+
+
 
 //Check if token is expired or not valid or valid...
 //TRUE IF EXPIRED AND FALSE IF NOT
@@ -509,6 +514,14 @@ func (nodeToken *NodeToken) CheckExpired() (expired bool, err error){
 		}
 	}
 
+}
+
+
+
+func (nodeToken *NodeToken) GetTokenStatus(app *Application) (status string, err error){
+	//First try to match the token..
+	stmt := `MATCH (app: Application{name: {appName}, id: {appId} })
+	         MATCH (app)-[org:Organization]->()-[type:Type]->()-[identity:Identity{userId: {userId} }]->(token:Token{})`
 }
 
 
