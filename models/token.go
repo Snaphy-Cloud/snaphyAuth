@@ -8,21 +8,16 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"time"
 	"snaphyAuth/Interfaces"
+	"github.com/astaxie/beego"
 )
 
 type Token struct{
-	TokenString string //JWT TOKEN INFO
-	AppId int
-	RealmName string
-	GroupName string
-	Status string
-	UserId int
-	Added int64
-	Expiry int64
-	LastUpdated int64
-	JTI string //Unique token provider.
-        // TODO LATER CONVERT IT TO ARRAY TYPE
-	Roles []string
+	IAT int64 //Issued at
+	ISS int64 //User Identity
+	EXP int64 //Expiry Time
+	JTI string //Unique string identifies a token
+	GRP string //Group
+	KID string //AppId its not applicationID but AppId in TokenHelper file to track application.....
 }
 
 
@@ -31,6 +26,28 @@ type Token struct{
 var _ Interfaces.Graph = (*Token)(nil)
 
 
+func init(){
+	token := new(Token)
+	err := token.AddUniqueConstraint()
+	if err != nil{
+		beego.Trace("Error creating UNIQUE constraint on Token database")
+		beego.Trace(err)
+	}
+}
+
+
+
+
+func (token *Token)AddUniqueConstraint() (err error){
+	stmt := "CREATE CONSTRAINT ON (token:Token) ASSERT token.JTI IS UNIQUE"
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+
+	return
+}
 
 
 

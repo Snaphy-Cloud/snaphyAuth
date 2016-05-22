@@ -3,7 +3,6 @@ package models
 import (
 	"github.com/jmcvetta/neoism"
 	"snaphyAuth/Interfaces"
-	"strconv"
 	"github.com/dgrijalva/jwt-go"
 	"errors"
 	"time"
@@ -13,10 +12,13 @@ import (
 
 
 type Group struct {
+	Id string //uuid unique identifier..
 	Name string
 	AppId int
 	RealmName string
 }
+
+
 
 
 
@@ -26,8 +28,42 @@ var _ Interfaces.Graph = (*Group)(nil)
 
 
 
+func init(){
+	group := new(Group)
+	group.AddUniqueConstraint()
+}
+
+
+
+func (group *Group)AddUniqueConstraint() (err error){
+	stmt := "CREATE CONSTRAINT ON (group:Group) ASSERT group.id IS UNIQUE"
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+
+	return
+}
+
+
+
+func (realm *Realm) Create(group *Group) (err error)  {
+	stmt := `MATCH (realm:Realm{name: {realmName}, appId: {appId} })
+		 MERGE (grp:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })
+		 MERGE (realm) - [type: Type] -> (grp)`
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"realmName":  realm.Name, "appId": realm.AppId, "groupName": group.Name},
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
 func (group *Group) Delete() (err error){
-	stmt := `MATCH p =(begin:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })-[r*]->(END:Token)  DETACH DELETE p`
+	stmt := `MATCH p = (begin:Group{name: {groupName}, appId: {appId}, realmName: {realmName} })-[r*]->(END:Token)  DETACH DELETE p`
 	cq := neoism.CypherQuery{
 		Statement: stmt,
 		Parameters: neoism.Props{"groupName": group.Name, "appId": group.AppId, "realmName": group.RealmName},
@@ -46,7 +82,7 @@ func (group *Group) Delete() (err error){
 
 
 //Create and sign the token..
-func (group *Group) CreateToken(token *NodeToken, app *Application, settings *ApplicationSettings, tokenHelper *TokenHelper, realm *Realm, tag *NodeTag, userIdentity string) (err error){
+func (group *Group) CreateToken(token *Token, app *Application, settings *ApplicationSettings, tokenHelper *TokenHelper, realm *Realm, tag *TokenTag, userIdentity string) (err error){
 	// Create the token
 	var signToken *jwt.Token
 
@@ -84,18 +120,18 @@ func (group *Group) CreateToken(token *NodeToken, app *Application, settings *Ap
 	if tokenHelper.PrivateKey != ""{
 
 		// Sign and get the complete encoded token as a string
-		tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
+		//tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
 		if err != nil{
 			return err
 		}else{
-			userId, _ := strconv.Atoi(userIdentity)
-			token.Added = issuedAt
+			//userId, _ := strconv.Atoi(userIdentity)
+			/*token.Added = issuedAt
 			token.LastUpdated = issuedAt
 			token.AppId = app.Id
 			token.RealmName = realm.Name
 			token.Status = StatusMap["ACTIVE"]
 			token.TokenString = tokenString
-			token.UserId = userId
+			token.UserId = userId*/
 			token.JTI = jti
 		}
 

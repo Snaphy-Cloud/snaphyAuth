@@ -11,12 +11,11 @@ type TokenTag struct{
 	Name string //unique among a particular realm and application.
 }
 
+
+
 //Check interface implementation..
 //Will throw error if the struct doesn't implements Graph Interface..
 var _ Interfaces.Graph = (*TokenTag)(nil)
-
-
-
 
 
 
@@ -48,6 +47,7 @@ func (tag *TokenTag) Exist() (isExist bool, err error)  {
 		return false, err
 	}
 }
+
 
 
 func (tag *TokenTag) Delete() (err error){
