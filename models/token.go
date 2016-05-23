@@ -11,6 +11,7 @@ import (
 	"github.com/astaxie/beego"
 	"snaphyAuth/errorMessage"
 	"snaphyAuth/helper"
+	"go/token"
 )
 
 
@@ -21,6 +22,7 @@ type Token struct{
 	EXP int64 //Expiry Time
 	JTI string //Unique string identifies a token
 	GRP string //Group
+	REALM string //realm name
 	KID string //AppId its not applicationID but AppId in TokenHelper file to track application.....
 	STATUS string //Status showing the token is invalid or what.
 }
@@ -126,8 +128,9 @@ func (loginToken *Token) VerifyAndParse(tokenString string) (valid bool, err err
 		loginToken.IAT = token.Claims["iat"].(int64)
 		loginToken.GRP = token.Claims["grp"].(string)
 		loginToken.ISS = token.Claims["iss"].(int64)
+		loginToken.REALM = token.Claims["realm"].(string)
 
-		tokenHelper := new (TokenHelper)
+		tokenHelper := new(TokenHelper)
 		//Complete check if the token is valid..
 		ok, err = loginToken.CheckIfTokenValid(tokenHelper)
 		if ok == false || err != nil{
@@ -142,9 +145,7 @@ func (loginToken *Token) VerifyAndParse(tokenString string) (valid bool, err err
 				return publicKey, nil
 			}
 		}
-
 	})
-
 	return token.Valid, err
 }
 
@@ -167,6 +168,7 @@ func (token *Token)LookUpKey(appId string, tokenHelper *TokenHelper) (publicKey 
 		return []byte(tokenHelper.PublicKey), nil
 	}
 }
+
 
 
 func (token *Token) GetTokenHelper(appId string) (tokenHelper *TokenHelper, err error){
@@ -373,17 +375,14 @@ func (token *Token)Update(err error){
 
 //Throw error if not exist..
 func (token *Token) CreateIfNotExist() (err error){
-	/*
-	type Token struct{
-	IAT int64 //Issued at
-	ISS int64 //User Identity
-	EXP int64 //Expiry Time
-	JTI string //Unique string identifies a token
-	GRP string //Group
-	KID string //AppId its not applicationID but AppId in TokenHelper file to track application.....
-	STATUS string //Status showing the token is invalid or what.
-	}*/
 
+	tokenHelper := new (TokenHelper)
+	//Find tokenHelper, Application and ApplicationSettings
+	err = getTokenHelperApp(tokenHelper, token)
+
+	if err != nil{
+		return err
+	}
 
 	if token.IAT == 0{
 		token.IAT = time.Now().Unix() //Issuer at time..
@@ -399,21 +398,7 @@ func (token *Token) CreateIfNotExist() (err error){
 		return errorMessage.AppIdNull
 	}
 	if token.EXP == 0{
-		tokenHelper := new (TokenHelper)
-		tokenHelper, err = token.GetTokenHelper(token.KID)
-		if err != nil{
-			return err
-		}
-		//Now fetch application..
-		_, err = tokenHelper.FetchTokenHelperApp()
-		if err != nil{
-			return err
-		}
-		//Now fetch the application settings...
-		_, err = tokenHelper.Application.FetchAppSettings()
-		if err != nil{
-			return err
-		}
+
 		if tokenHelper.Application.Settings != nil{
 			duration := tokenHelper.Application.Settings.ExpiryDuration
 			if duration == 0 {
@@ -425,38 +410,162 @@ func (token *Token) CreateIfNotExist() (err error){
 		}
 
 	}
-	if token.GRP{
+
+	if token.GRP != ""{
 		return errorMessage.TokenGroupNotPresent
+	}
+	if token.REALM != ""{
+		return errorMessage.TokenRealmNotPresent
 	}
 	//Putting default status of token to active..
 	token.STATUS = StatusMap["ACTIVE"]
 
-
 	var exist bool
 	//Also create relationship.
 	if exist, err = token.Exist(); err == nil && exist == false {
-		stmt := `MATCH (realm:Realm{name: {realmName}, appId: {appId} })
-			 CREATE (grp:Group{name: {tokenName}, appId: {appId}, realmName: {realmName}, id: {id} })
-			 CREATE (realm) - [type: Type] -> (grp)`
+		stmt := `MATCH (grp:Group{name: {groupName}, appId: {appId}, realmName: {realmName}})
+			 CREATE (token:Token{iat: {IAT}, iss: {ISS}, exp: {EXP}, jti: {JTI}, grp: {GRP}, realm: {REALM}, kid: {KID}, status:{STATUS} })
+			 CREATE (grp) - [type: Type{userIdentity: {ISS} }] -> (grp)`
 		cq := neoism.CypherQuery{
 			Statement: stmt,
-			Parameters: neoism.Props{"realmName":  token.RealmName, "appId": token.AppId, "tokenName": token.Name, "id": id},
+			Parameters: neoism.Props{
+				"groupName": token.GRP,
+				"appId": tokenHelper.Application.Id,
+				"realmName": token.REALM,
+				"IAT": token.IAT,
+				"ISS": token.ISS,
+				"EXP": token.EXP,
+				"JTI": token.JTI,
+				"GRP": token.GRP,
+				"realm": token.REALM,
+				"KID": token.KID,
+				"STATUS": token.STATUS,
+			},
 		}
 
 		// Issue the query.
 		err = db.Cypher(&cq)
 
-		if err == nil{
-			//Add id
-			token.Id = id
-		}
 		return
 	}else{
 		return errorMessage.ErrorAlreadyPresent
 	}
 }
 
-//TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN
+
+//Add a logout token method..delete the whole token tree..
+
+func (token *Token) RefreshToken(previousToken *Token) (err error){
+	//Renew token after one is invalid..
+	//Find the previous token if not found the reject
+	//Now if the status of previous token is already other than Active then reject RefreshToken request
+	//Update the status of the previous token to Expired or Invalid
+	//Now RENEW a new token adding a `Refresh` relationship to the token..
+	panic("Under Construction Method")
+
+}
+
+
+func (token *Token) GenerateLoginToken(previousToken *Token) (err error){
+
+}
+
+//Will simply add token data to graph database with depedencies..
+//token does not support merge create.
+//It will create only if token doesnot exist and will throw an error if it exist..
+func (token *Token)Create() (err error){
+	err = token.CreateIfNotExist()
+	return
+}
+
+
+
+func getTokenHelperApp(tokenHelper *TokenHelper, token *Token) (err error){
+	tokenHelper, err = token.GetTokenHelper(token.KID)
+	if err != nil{
+		return err
+	}
+	//Now fetch application..
+	_, err = tokenHelper.FetchTokenHelperApp()
+	if err != nil{
+		return err
+	}
+	//Now fetch the application settings...
+	_, err = tokenHelper.Application.FetchAppSettings()
+	if err != nil{
+		return err
+	}
+	return
+}
+
+
+
+
+
+//Create Token and Generate Signature..
+//Generate Signature for the token and Also add tokens to graph Database..
+func (token *Token) GenerateSignature(app *Application, settings *ApplicationSettings, tokenHelper *TokenHelper, realm *Realm, tag *TokenTag, userIdentity string) (err error){
+	// Create the token
+	var signToken *jwt.Token
+
+	if tokenHelper.HashType == "" {
+		return errors.New("No Signing method present in the TokenHelper Database")
+	}else if(tokenHelper.HashType == "RS256"){
+		signToken = jwt.New(jwt.SigningMethodRS256)
+	}else{
+		//Right now default is RS256
+		signToken = jwt.New(jwt.SigningMethodRS256)
+	}
+
+	//signToken := jwt.GetSigningMethod(tokenHelper.HashType)
+
+	duration := settings.ExpiryDuration
+	if duration == 0 {
+		duration = 3600
+	}
+
+	expiryTime := time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
+	issuedAt := time.Now().Unix() //Issuer at time..
+	jti := helper.CreateUUID()
+	signToken.Claims["exp"] = expiryTime
+	signToken.Claims["iat"] = issuedAt
+	signToken.Claims["iss"] = userIdentity //user identity..
+	signToken.Claims["grp"] = group.Name //Group with which user belong to.
+	signToken.Claims["realm"] = realm.Name
+	//TODO LATER ADD MORE ROLES BY FETCHING RELATION FROM GRAPH DATABASE..
+	signToken.Claims["roles"] = tag.Name
+	//JUST STORE THIS INSTEAD OF STORING TOKENS..
+	signToken.Claims["jti"] = jti
+	//Add kid to track token to public and private keys..
+	signToken.Claims["kid"] = tokenHelper.AppId
+
+	if tokenHelper.PrivateKey != ""{
+
+		// Sign and get the complete encoded token as a string
+		//tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
+		if err != nil{
+			return err
+		}else{
+			//userId, _ := strconv.Atoi(userIdentity)
+			/*token.Added = issuedAt
+			token.LastUpdated = issuedAt
+			token.AppId = app.Id
+			token.RealmName = realm.Name
+			token.Status = StatusMap["ACTIVE"]
+			token.TokenString = tokenString
+			token.UserId = userId*/
+			token.JTI = jti
+		}
+
+		return err
+	}else{
+		return errors.New("Private key not present in tokenHelper")
+	}
+}
+
+
+
+
 //TODO WRITE ALL GRAPHQL METHODS....
 
 

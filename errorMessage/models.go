@@ -13,5 +13,6 @@ var (
 	TokenJTINotPresent        = errors.New("Tokens JTI key not present in the token model")
 	TokenStatusNotPresent     = errors.New("Tokens model doesn't have status present")
 	TokenUserIdNotPresent     = errors.New("User Id  not present in the token model")
+	TokenRealmNotPresent      = errors.New("Token model realm name cannot be empty")
 	TokenGroupNotPresent      = errors.New("Token model group name cannot be empty")
 )
