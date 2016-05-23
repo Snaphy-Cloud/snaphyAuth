@@ -9,6 +9,7 @@ import (
 	"time"
 	"snaphyAuth/Interfaces"
 	"github.com/astaxie/beego"
+	"snaphyAuth/errorMessage"
 )
 
 
@@ -20,6 +21,7 @@ type Token struct{
 	JTI string //Unique string identifies a token
 	GRP string //Group
 	KID string //AppId its not applicationID but AppId in TokenHelper file to track application.....
+	STATUS string //Status showing the token is invalid or what.
 }
 
 
@@ -53,14 +55,14 @@ func (token *Token)AddUniqueConstraint() (err error){
 
 
 //Add a tag with relationship..
-func (token *Token) AddTag(tag *TokenTag) (err error){
-	stmt := `MATCH (tag: Label{ name:{labelName}, appId: {appId}, realmName: {realm} })
-	         MATCH (token:Token) WHERE token.name = {tokenString} AND token.appId = {appId} AND token.realmName = {realm}
-	         MERGE (tag) - [role:Role] -> (token)`
+func (token *Token) AddTag(tokenTag *TokenTag) (err error){
+	stmt := `MATCH (tokenTag: TokenTag) WHERE tokenTag.id = {tokenTagId}
+	         MATCH (token:Token) WHERE token.JTI = {JTI} AND token.KID = {KID}
+	         MERGE (tokenTag) - [role:Role] -> (token)`
 
 	cq := neoism.CypherQuery{
 		Statement: stmt,
-		Parameters: neoism.Props{"labelName": tag.Name, "appId": token.AppId, "realm": token.RealmName, "tokenString": token.TokenString},
+		Parameters: neoism.Props{"tokenTagId": tokenTag.Id, "KID": token.KID, "JTI": token.JTI},
 	}
 
 	// Issue the query.
@@ -71,57 +73,97 @@ func (token *Token) AddTag(tag *TokenTag) (err error){
 
 
 //Verify the token before parsing .. the token just checks if the tokens ia a valid one.
-func (nodeToken *Token) VerifyHash(tokenHelper *TokenHelper) (valid bool, err error){
-
-	parts := strings.Split(nodeToken.TokenString, ".")
-
-	method := jwt.GetSigningMethod(tokenHelper.HashType)
-	err = method.Verify(strings.Join(parts[0:2], "."), parts[2], []byte(tokenHelper.PublicKey))
-
-	if err != nil{
-
-		return false, err
-	}else{
-		return true, err
+//NOTE: This method just verify the encryption of algorithm and remains silent about expiry of tokens or token not present in the graph.
+func  (token *Token)  VerifyHash(tokenString string) (ok bool, err error){
+	if tokenString == ""{
+		return false, errors.New(errorMessage.TokenNotValid)
 	}
 
+	//Now check if the application status is active or not...
+	tokenHelper := new(TokenHelper)
+
+	tokenHelper, err = token.GetTokenHelper(token.KID)
+	if ok, err = tokenHelper.CheckAppStatus(); ok && err == nil{
+		parts := strings.Split(tokenString, ".")
+
+		method := jwt.GetSigningMethod(tokenHelper.HashType)
+		err = method.Verify(strings.Join(parts[0:2], "."), parts[2], []byte(tokenHelper.PublicKey))
+
+		if err != nil{
+			return false, err
+		}else{
+			//Valid return..
+			return true, nil
+		}
+	}
+
+	return
 }
+
+
+
+
+
 
 
 
 
 //Parses the token value..And also validates the algorithm..
-func (nodeToken *Token) VerifyAndParse() (valid bool, err error){
+//Return invalid if any error occures..
+func (loginToken *Token) VerifyAndParse(tokenString string) (valid bool, err error){
 	var token *jwt.Token
-	token, err = jwt.Parse(nodeToken.TokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		var (
+			publicKey []byte
+			ok bool
+		)
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		//Also check the token expiry date
-		//Also check if the token in present in the db.
 
-		return LookUpKey(token.Claims["kid"].(string))
+
+		//Parse the tokens claims and put it in model
+		loginToken.KID = token.Claims["kid"].(string)
+		loginToken.JTI = token.Claims["jti"].(string)
+		loginToken.EXP = token.Claims["exp"].(int64)
+		loginToken.IAT = token.Claims["iat"].(int64)
+		loginToken.GRP = token.Claims["grp"].(string)
+		loginToken.ISS = token.Claims["iss"].(int64)
+
+		tokenHelper := new (TokenHelper)
+		//Complete check if the token is valid..
+		ok, err = loginToken.CheckIfTokenValid(tokenHelper)
+		if ok == false || err != nil{
+			return nil, err
+		}else{
+			//Now get the public key..
+			publicKey, err = loginToken.LookUpKey(loginToken.KID, tokenHelper)
+			if err != nil{
+				return nil, err
+			}else{
+				//Token is valid return..
+				return publicKey, nil
+			}
+		}
+
 	})
 
-	nodeToken.Added = int64(token.Claims["iat"].(float64))
-	nodeToken.Expiry = int64(token.Claims["exp"].(float64))
-	nodeToken.JTI = token.Claims["jti"].(string)
-	nodeToken.GroupName = token.Claims["grp"].(string)
-	nodeToken.Roles = token.Claims["roles"].(string)
-	nodeToken.RealmName = token.Claims["realm"].(string)
 	return token.Valid, err
 }
 
 
 //Find the public key with the provided data..
-func LookUpKey(appId string) (publicKey []byte, err error){
+func (token *Token)LookUpKey(appId string, tokenHelper *TokenHelper) (publicKey []byte, err error){
 	if appId == ""{
 		return nil, errors.New("Error: appId value is null")
 	}
-	tokenHelper := new(TokenHelper)
-	tokenHelper.AppId = appId
-	err = tokenHelper.GetToken()
+
+	if tokenHelper.Id == 0{
+		tokenHelper = new(TokenHelper)
+
+		tokenHelper, err = token.GetTokenHelper(appId)
+	}
 
 	if err != nil {
 		return nil, err
@@ -132,45 +174,127 @@ func LookUpKey(appId string) (publicKey []byte, err error){
 
 
 
-//Check if token is expired or not valid or valid...
-//TRUE IF EXPIRED AND FALSE IF NOT
-func (nodeToken *Token) CheckExpired() (expired bool, err error){
-	if nodeToken.Expiry == 0 {
+
+func (token *Token) GetTokenHelper(appId string) (tokenHelper *TokenHelper, err error){
+	if appId == ""{
+		return nil, errorMessage.AppIdNull
+	}
+
+	tokenHelper = new(TokenHelper)
+	tokenHelper.AppId = appId
+	err = tokenHelper.GetToken()
+	return
+}
+
+
+
+//Complete method for checking if the token is valid or not..
+//Required a parsed token..
+func (token *Token)CheckIfTokenValid(tokenHelper *TokenHelper) (ok bool, err error){
+	if tokenHelper.Id == 0{
+		tokenHelper = new(TokenHelper)
+		tokenHelper, err = token.GetTokenHelper(token.KID)
+	}
+
+	//Now check if Application of User is Active or Not
+	if ok, err = tokenHelper.CheckAppStatus(); ok && err == nil{
+		//Now check token expiry status..
+		ok, err = token.CheckTokenExpiry()
+		return
+
+	}else{
+		//Application is Not in Active state or TokenHelper value is disabled..
+		return false, err
+	}
+}
+
+
+//This doesn't checks if the main Application is Active or not.
+//Check if token is expired or present in the node or status is invalid or what not ...
+//TRUE IF TOKEN IS VALID AND FALSE IF NOT
+func (token *Token) CheckTokenExpiry() (ok bool, err error){
+	if token.EXP == 0 {
 		return true, errors.New("Expiry claim not present in Token model.")
 	}else{
 		now := time.Now().Unix()
-		//TODO ALSO CHECK THE STATUS IN GRAPHDATABASE FIRST
-		//TODO CREATE METHOD GETSTATUS() in NODE TOKEN
-		if now >= nodeToken.Expiry{
-			return true, nil
-		}else{
+		if now >= token.EXP{
+			//Reject the token
 			return false, nil
+		}else{
+			//Now check if the token is present in the database....
+			err := token.Read()
+			if err != nil {
+				return false, err
+			}else{
+				//Now check the status of the token..
+				if token.STATUS != StatusMap["ACTIVE"] {
+					return false, err
+				}else{
+					return true, err
+				}
+			}
 		}
 	}
-
 }
+
+
+
+
+//Read the token by token JTI token..
+func (token *Token) Read() (err error){
+	var(
+		tokenList []*Token
+	)
+	if token.JTI == "" {
+		return errorMessage.TokenJTINotPresent
+	}
+
+	err = token.ReadAll(&tokenList)
+	if len(tokenList) != 0{
+		token = tokenList[0]
+	}
+	return
+}
+
+
 
 
 //Find the token from the database and populate the data..
-//Provide the nodeToken with jwt field.
-func (nodeToken *Token) GetToken() (err error){
-	/*
-	TokenString string //JWT TOKEN INFO
-	AppId int
-	RealmName string
-	GroupName string
-	Status string
-	UserId int
-	Added int64
-	Expiry int64
-	LastUpdated int64
-	JTI string //Unique token provider.
-	Roles string*/
-	//First try to match the token..
-	/*stmt := `MATCH (app: Application{name: {appName}, id: {appId} })
-	         MATCH (app)-[org:Organization]->()-[type:Type]->()-[identity:Identity{userId: {userId} }]->(token:Token{jti: {jti}})`*/
-	stmt := `MATCH (token:Token{jti: {jti} }) RETURN token.status AS status`
+//Provide the nodeToken with jwt field or by userIdentity.
+func (token *Token) ReadAll(tokenTagListInterface [] *interface{}) (err error){
+	var tokenList []*Token
+	if token.JTI != "" {
+		stmt := `MATCH (token:Token) WHERE token.JTI = {JTI} RETURN token.IAT AS IAT, token.ISS AS ISS, token.EXP AS EXP, token.JTI AS JTI, token.GRP AS GRP, token.KID AS KID`
+		cq := neoism.CypherQuery{
+			Statement: stmt,
+			Parameters: neoism.Props{"JTI": token.JTI},
+			Result: &tokenList,
+		}
+
+		// Issue the query.
+		err = db.Cypher(&cq)
+
+	}else if(token.ISS != 0){
+		stmt := `MATCH (token:Token) WHERE token.ISS = {ISS} RETURN token.IAT AS IAT, token.ISS AS ISS, token.EXP AS EXP, token.JTI AS JTI, token.GRP AS GRP, token.KID AS KID`
+		cq := neoism.CypherQuery{
+			Statement: stmt,
+			Parameters: neoism.Props{"ISS": token.ISS},
+			Result: &tokenList,
+		}
+
+		// Issue the query.
+		err = db.Cypher(&cq)
+
+	}else{
+		panic("Unhandled condition.")
+	}
+
+	if len(tokenList) != 0 {
+		tokenTagListInterface = &tokenList
+		return
+	}
 }
+
 
 
 //TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN

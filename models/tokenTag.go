@@ -3,7 +3,6 @@ package models
 import (
 	"github.com/jmcvetta/neoism"
 	"snaphyAuth/Interfaces"
-	"golang.org/x/text/internal/tag"
 	"snaphyAuth/helper"
 	"snaphyAuth/errorMessage"
 )
@@ -173,7 +172,7 @@ func (tokenTag *TokenTag) ReadAll(tokenTagListInterface [] *interface{}) (err er
 	if(tokenTag.Id != ""){
 		//Node exists just merge.
 		stmt := `MATCH (tokenTag:TokenTag) WHERE tokenTag.id = {id}
-			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName`
+			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName LIMIT 1000`
 
 
 		cq := neoism.CypherQuery{
@@ -188,7 +187,7 @@ func (tokenTag *TokenTag) ReadAll(tokenTagListInterface [] *interface{}) (err er
 	}else if (tokenTag.AppId != "" && tokenTag.RealmName != "" && tokenTag.Name == ""){
 		//Node exists just merge.
 		stmt := `MATCH (tokenTag:TokenTag) WHERE tokenTag.appId = {appId}  AND tokenTag.realmName = {realmName}
-			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName`
+			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName LIMIT 1000`
 
 
 		cq := neoism.CypherQuery{
@@ -199,11 +198,24 @@ func (tokenTag *TokenTag) ReadAll(tokenTagListInterface [] *interface{}) (err er
 
 		// Issue the query.
 		err = db.Cypher(&cq)
+	}else if(tokenTag.AppId != "" && tokenTag.RealmName == "" && tokenTag.Name == ""){
+		 //Node exists just merge.//Else name, realmName, appId is compulsary..
+		stmt := `MATCH (tokenTag:TokenTag) WHERE tokenTag.appId = {appId}
+			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName LIMIT 1000`
+
+
+		cq := neoism.CypherQuery{
+			Statement: stmt,
+			Parameters: neoism.Props{"appId": tokenTag.AppId},
+			Result: &tokenTagList,
+		}
+
+		// Issue the query.
+		err = db.Cypher(&cq)
 	}else{
 		//Node exists just merge.//Else name, realmName, appId is compulsary..
 		stmt := `MATCH (tokenTag:TokenTag) WHERE tokenTag.appId = {appId} AND tokenTag.name = {tokenTag.name} AND tokenTag.realmName = {realmName}
-			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName`
-
+			 RETURN tokenTag.name AS name, tokenTag.id AS id, tokenTag.appId as appId, tokenTag.realmName AS realmName LIMIT 1000`
 
 		cq := neoism.CypherQuery{
 			Statement: stmt,
@@ -218,6 +230,21 @@ func (tokenTag *TokenTag) ReadAll(tokenTagListInterface [] *interface{}) (err er
 
 	if len(tokenTagList) != 0 {
 		tokenTagListInterface = &tokenTagList
+	}
+	return
+}
+
+
+
+
+func  (tokenTag *TokenTag) Read()  (err error){
+	var(
+		tokenTagList []*TokenTag
+	)
+
+	err = tokenTag.ReadAll(&tokenTagList)
+	if len(tokenTagList) != 0{
+		tokenTag = tokenTagList[0]
 	}
 	return
 }

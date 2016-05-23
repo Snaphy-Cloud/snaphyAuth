@@ -68,22 +68,22 @@ func (app *GraphApp)ReadAll(appList [] *interface{}) (err error){
 		graphApp []*GraphApp
 	)
 
-	if app.Id != 0 && app.Name != ""{
-		stmt := `MATCH (app: GraphApp) WHERE app.name = {name} AND app.id = {id}  RETURN app.name AS name, app.id as id`
+	if app.Id != 0 && app.Name != "" {
+		stmt := `MATCH (app: GraphApp) WHERE app.name = {name} AND app.id = {id}  RETURN app.name AS name, app.id as id LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"name": app.Name, "id" : app.Id},
 			Result: &graphApp,
 		}
 	}else if app.Id != 0 && app.Name == "" {
-		stmt := `MATCH (app: GraphApp) WHERE  app.id = {id}  RETURN app.name AS name, app.id as id`
+		stmt := `MATCH (app: GraphApp) WHERE  app.id = {id}  RETURN app.name AS name, app.id as id LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"id" : app.Id},
 			Result: &graphApp,
 		}
 	}else if  app.Id == 0 && app.Name != "" {
-		stmt := `MATCH (app: GraphApp) WHERE  app.name = {name}  RETURN app.name AS name, app.id as id`
+		stmt := `MATCH (app: GraphApp) WHERE  app.name = {name}  RETURN app.name AS name, app.id as id LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"name" : app.Name},

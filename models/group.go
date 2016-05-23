@@ -158,7 +158,7 @@ func (group *Group) ReadAll(groupListInterface [] *interface{}) (err error){
 	if(group.Id != ""){
 		//Node exists just merge.
 		stmt := `MATCH (grp:Group) WHERE grp.id = {id}
-			 RETURN grp.name AS name, grp.id AS id, grp.appId as appId, grp.realmName AS realmName`
+			 RETURN grp.name AS name, grp.id AS id, grp.appId as appId, grp.realmName AS realmName LIMIT 1000`
 
 
 		cq := neoism.CypherQuery{
@@ -173,7 +173,7 @@ func (group *Group) ReadAll(groupListInterface [] *interface{}) (err error){
 	}else{
 		//Node exists just merge.
 		stmt := `MATCH (grp:Group) WHERE grp.appId = {appId} AND grp.name = {grp.name} AND grp.realmName = {realmName}
-			 RETURN grp.name AS name, grp.id AS id, grp.appId as appId, grp.realmName AS realmName`
+			 RETURN grp.name AS name, grp.id AS id, grp.appId as appId, grp.realmName AS realmName LIMIT 1000`
 
 
 		cq := neoism.CypherQuery{

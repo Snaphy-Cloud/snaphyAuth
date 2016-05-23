@@ -167,21 +167,21 @@ func (realm *Realm)ReadAll(realmListInterface [] *interface{}) (err error){
 	)
 
 	if realm.AppId != 0 && realm.Name != ""{
-		stmt := `MATCH (realm: Realm) WHERE realm.name = {name} AND realm.appId = {appId}  RETURN realm.name AS name, realm.appId as appId`
+		stmt := `MATCH (realm: Realm) WHERE realm.name = {name} AND realm.appId = {appId}  RETURN realm.name AS name, realm.appId as appId LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"name": realm.Name, "appId" : realm.AppId},
 			Result: &realmList,
 		}
 	}else if realm.AppId != 0 && realm.Name == "" {
-		stmt := `MATCH (realm: Realm)  WHERE  realm.appId = {appId}  RETURN realm.name AS name, realm.appId as appId`
+		stmt := `MATCH (realm: Realm)  WHERE  realm.appId = {appId}  RETURN realm.name AS name, realm.appId as appId LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"appId" : realm.AppId},
 			Result: &realmList,
 		}
 	}else if  realm.AppId == 0 && realm.Name != "" {
-		stmt := `MATCH (realm: Realm) WHERE  realm.name = {name}  RETURN realm.name AS name, realm.appId as appId`
+		stmt := `MATCH (realm: Realm) WHERE  realm.name = {name}  RETURN realm.name AS name, realm.appId as appId LIMIT 1000`
 		cq = neoism.CypherQuery{
 			Statement: stmt,
 			Parameters: neoism.Props{"name" : realm.Name},

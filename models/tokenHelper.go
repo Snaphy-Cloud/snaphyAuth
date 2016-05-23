@@ -53,6 +53,35 @@ func (token *TokenHelper) GetToken()(err error){
 }
 
 
+func (token *TokenHelper) FetchTokenHelperApp() (num int64, err error) {
+	o := orm.NewOrm()
+	o.Using("default")
+	num, err = o.LoadRelated(token, "Application")
+	return
+}
+
+
+//Check if app status is expired or not
+func (token *TokenHelper) CheckAppStatus() (ok bool, err error){
+	//First fetch the tokenHelper Application.
+	//TODO check if application is already fetched in that case dont fetched again performance
+	if token.Status == StatusMap["ACTIVE"] {
+		//Now check the application status..
+		_, err = token.FetchTokenHelperApp()
+		if token.Application.Status == StatusMap["ACTIVE"] {
+			ok = true
+		}else{
+			ok = false
+		}
+	}else{
+		ok = false
+		err = nil
+	}
+	return
+}
+
+
+
 
 //Used for creating a token..
 //Only Application
