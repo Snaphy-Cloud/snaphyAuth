@@ -103,11 +103,6 @@ func  (token *Token)  VerifyHash(tokenString string) (ok bool, err error){
 
 
 
-
-
-
-
-
 //Parses the token value..And also validates the algorithm..
 //Return invalid if any error occures..
 func (loginToken *Token) VerifyAndParse(tokenString string) (valid bool, err error){
@@ -171,8 +166,6 @@ func (token *Token)LookUpKey(appId string, tokenHelper *TokenHelper) (publicKey 
 		return []byte(tokenHelper.PublicKey), nil
 	}
 }
-
-
 
 
 func (token *Token) GetTokenHelper(appId string) (tokenHelper *TokenHelper, err error){
@@ -239,7 +232,6 @@ func (token *Token) CheckTokenExpiry() (ok bool, err error){
 
 
 
-
 //Read the token by token JTI token..
 func (token *Token) Read() (err error){
 	var(
@@ -255,7 +247,6 @@ func (token *Token) Read() (err error){
 	}
 	return
 }
-
 
 
 
@@ -296,8 +287,64 @@ func (token *Token) ReadAll(tokenTagListInterface [] *interface{}) (err error){
 }
 
 
+//Check if token exist by checking JTI value
+func (token *Token) Exist() (exist bool, err error)  {
+	var tokenExist []struct{
+		Count int `json:"count"`
+	}
+	if token.JTI == "" {
+		return false, errorMessage.TokenJTINotPresent
+	}
+
+	stmt := `MATCH (token: Token) WHERE token.JTI = {JTI} RETURN count(tag) AS count`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"JTI": token.JTI },
+		Result: &tokenExist,
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	if err != nil{
+		return false, err
+	}
+
+	if len(tokenExist) != 0{
+		if tokenExist[0].Count == 0{
+			return false, err
+		}else{
+			return true, err
+		}
+	}else{
+		return false, err
+	}
+}
+
+
+//Delete the token by JTI value..
+func (token *Token) Delete(err error){
+	if token.JTI == "" {
+		return false, errorMessage.TokenJTINotPresent
+	}
+
+	stmt := `MATCH (token: Token) WHERE token.JTI = {JTI}
+	         OPTIONAL MATCH p = (token)-[*]->(END)
+	         DETACH DELETE p`
+
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"JTI": token.JTI },
+	}
+
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+
+}
 
 //TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN
-//TODO WRITE A METHOD TO FIND IF THE TOKEN ALREADY PRESENT IN THE DATABASE..
+//TODO WRITE ALL GRAPHQL METHODS..
+
 
 

@@ -64,10 +64,12 @@ func (token *TokenHelper) FetchTokenHelperApp() (num int64, err error) {
 //Check if app status is expired or not
 func (token *TokenHelper) CheckAppStatus() (ok bool, err error){
 	//First fetch the tokenHelper Application.
-	//TODO check if application is already fetched in that case dont fetched again performance
 	if token.Status == StatusMap["ACTIVE"] {
-		//Now check the application status..
-		_, err = token.FetchTokenHelperApp()
+		if token.Application.Id != 0{
+			//Now check the application status..
+			_, err = token.FetchTokenHelperApp()
+		}
+
 		if token.Application.Status == StatusMap["ACTIVE"] {
 			ok = true
 		}else{
