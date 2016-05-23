@@ -2,9 +2,6 @@ package models
 
 import (
 	"github.com/jmcvetta/neoism"
-	"errors"
-	"fmt"
-	"strconv"
 )
 
 
@@ -43,7 +40,7 @@ func init() {
 
 
 func test(){
-	var err error
+	/*var err error
 	nodeApp := new(GraphApp)
 	nodeApp.Id = 3
 	nodeApp.Name = "snaphyAdminAuth"
@@ -110,7 +107,7 @@ func test(){
 		}
 	}else{
 		fmt.Println(err)
-	}
+	}*/
 }
 
 

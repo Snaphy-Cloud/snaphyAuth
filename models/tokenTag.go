@@ -250,5 +250,5 @@ func  (tokenTag *TokenTag) Read()  (err error){
 }
 
 
-//ADD METHODS FOR ADDING RELATIONAL IS_ALSO `TAG`
+//TODO ADD METHODS FOR ADDING RELATIONAL IS_ALSO `TAG`
 
