@@ -11,6 +11,8 @@ import (
 	"github.com/astaxie/beego"
 )
 
+
+
 type Token struct{
 	IAT int64 //Issued at
 	ISS int64 //User Identity
@@ -45,7 +47,6 @@ func (token *Token)AddUniqueConstraint() (err error){
 	}
 	// Issue the query.
 	err = db.Cypher(&cq)
-
 	return
 }
 
