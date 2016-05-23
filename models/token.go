@@ -57,7 +57,7 @@ func (token *Token)AddUniqueConstraint() (err error){
 
 
 
-//Add a tag with relationship..
+//Add a tag to token with relationship..
 func (token *Token) AddTag(tokenTag *TokenTag) (err error){
 	stmt := `MATCH (tokenTag: TokenTag) WHERE tokenTag.id = {tokenTagId}
 	         MATCH (token:Token) WHERE token.JTI = {JTI} AND token.KID = {KID}
@@ -467,7 +467,12 @@ func (token *Token) RefreshToken(previousToken *Token) (err error){
 
 
 func (token *Token) GenerateLoginToken(previousToken *Token) (err error){
-
+	//First find the previous token and silently ignore if not present however if present
+	//if previous token is provided  first delete the point upto which the previousToken including the previousToken node
+	//Now find the node through which previous token was connected it may be a group or a token handle both cases differently...
+	//Now Refresh the new token with the previous token
+	//IF it was a group the simple create a new node and delete the previous one or if its a token and refresh a new token adding it base as previous
+	panic("Under Construction Method")
 }
 
 //Will simply add token data to graph database with depedencies..
@@ -502,9 +507,9 @@ func getTokenHelperApp(tokenHelper *TokenHelper, token *Token) (err error){
 
 
 
-//Create Token and Generate Signature..
+//Create first time Token and Generate Signature..
 //Generate Signature for the token and Also add tokens to graph Database..
-func (token *Token) GenerateSignature(app *Application, settings *ApplicationSettings, tokenHelper *TokenHelper, realm *Realm, tag *TokenTag, userIdentity string) (err error){
+func (token *Token) GenerateSignature(tokenHelper *TokenHelper, realm *Realm, group *Group, tag *TokenTag, userIdentity string) (tokenString string, err error){
 	// Create the token
 	var signToken *jwt.Token
 
@@ -514,52 +519,49 @@ func (token *Token) GenerateSignature(app *Application, settings *ApplicationSet
 		signToken = jwt.New(jwt.SigningMethodRS256)
 	}else{
 		//Right now default is RS256
+		//TODO Add some more signing methods..
 		signToken = jwt.New(jwt.SigningMethodRS256)
 	}
 
-	//signToken := jwt.GetSigningMethod(tokenHelper.HashType)
 
-	duration := settings.ExpiryDuration
-	if duration == 0 {
-		duration = 3600
+	token.ISS = userIdentity
+	token.GRP = group.Name
+	token.KID = tokenHelper.AppId
+	token.REALM = realm.Name
+
+	//Now store token to graph Database...
+	err = token.CreateIfNotExist()
+	if err != nil{
+		return
 	}
 
-	expiryTime := time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
-	issuedAt := time.Now().Unix() //Issuer at time..
-	jti := helper.CreateUUID()
-	signToken.Claims["exp"] = expiryTime
-	signToken.Claims["iat"] = issuedAt
-	signToken.Claims["iss"] = userIdentity //user identity..
-	signToken.Claims["grp"] = group.Name //Group with which user belong to.
+	//Now add tag to database if..tag present
+	if tag.Name != ""{
+		token.AddTag(tag)
+	}
+
+	signToken.Claims["exp"]   = token.EXP
+	signToken.Claims["iat"]   = token.IAT
+	signToken.Claims["iss"]   = userIdentity //user identity..
+	signToken.Claims["grp"]   = group.Name //Group with which user belong to.
 	signToken.Claims["realm"] = realm.Name
+	signToken.Claims["jti"]   = token.JTI
+	signToken.Claims["kid"]   = tokenHelper.AppId
+
 	//TODO LATER ADD MORE ROLES BY FETCHING RELATION FROM GRAPH DATABASE..
-	signToken.Claims["roles"] = tag.Name
-	//JUST STORE THIS INSTEAD OF STORING TOKENS..
-	signToken.Claims["jti"] = jti
-	//Add kid to track token to public and private keys..
-	signToken.Claims["kid"] = tokenHelper.AppId
+	if tag.Name != ""{
+		signToken.Claims["roles"] = tag.Name
+	}
 
-	if tokenHelper.PrivateKey != ""{
 
+
+	if tokenHelper.PrivateKey != "" {
 		// Sign and get the complete encoded token as a string
-		//tokenString, err := signToken.SignedString([]byte(tokenHelper.PrivateKey))
-		if err != nil{
-			return err
-		}else{
-			//userId, _ := strconv.Atoi(userIdentity)
-			/*token.Added = issuedAt
-			token.LastUpdated = issuedAt
-			token.AppId = app.Id
-			token.RealmName = realm.Name
-			token.Status = StatusMap["ACTIVE"]
-			token.TokenString = tokenString
-			token.UserId = userId*/
-			token.JTI = jti
-		}
-
-		return err
+		tokenString, err = signToken.SignedString([]byte(tokenHelper.PrivateKey))
+		//Finally return the tokenString..
+		return tokenString, err
 	}else{
-		return errors.New("Private key not present in tokenHelper")
+		return  "", errors.New("Private key not present in tokenHelper")
 	}
 }
 
@@ -567,6 +569,7 @@ func (token *Token) GenerateSignature(app *Application, settings *ApplicationSet
 
 
 //TODO WRITE ALL GRAPHQL METHODS....
+//TODO WRITE A CRON METHOD TO REMOVE TOKENS AFTER THEIR DEFAULT DAYS that is 30 days-60 days
 
 
 
