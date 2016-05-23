@@ -10,6 +10,7 @@ import (
 	"snaphyAuth/Interfaces"
 	"github.com/astaxie/beego"
 	"snaphyAuth/errorMessage"
+	"snaphyAuth/helper"
 )
 
 
@@ -340,11 +341,124 @@ func (token *Token) Delete(err error){
 	// Issue the query.
 	err = db.Cypher(&cq)
 	return
+}
 
+
+//Only update status..
+func (token *Token)Update(err error){
+	//First check if token exist or not.
+	var  exist bool = false
+	exist, err = token.Exist()
+	if exist == false {
+		return errorMessage.TokenNotValid
+	}else if err != nil{
+		return err
+	}
+
+	if token.STATUS == "" {
+		return errorMessage.TokenStatusNotPresent
+	}
+
+	stmt := `MATCH (token: Token) WHERE token.JTI = {JTI}
+	         SET token.STATUS = {status}`
+	cq := neoism.CypherQuery{
+		Statement: stmt,
+		Parameters: neoism.Props{"JTI": token.JTI, "STATUS": token.STATUS },
+	}
+	// Issue the query.
+	err = db.Cypher(&cq)
+	return
+}
+
+
+//Throw error if not exist..
+func (token *Token) CreateIfNotExist() (err error){
+	/*
+	type Token struct{
+	IAT int64 //Issued at
+	ISS int64 //User Identity
+	EXP int64 //Expiry Time
+	JTI string //Unique string identifies a token
+	GRP string //Group
+	KID string //AppId its not applicationID but AppId in TokenHelper file to track application.....
+	STATUS string //Status showing the token is invalid or what.
+	}*/
+
+
+	if token.IAT == 0{
+		token.IAT = time.Now().Unix() //Issuer at time..
+
+	}
+	if token.ISS == 0{
+		return errorMessage.TokenUserIdNotPresent
+	}
+	if token.JTI == ""{
+		token.JTI = helper.CreateUUID()
+	}
+	if token.KID == ""{
+		return errorMessage.AppIdNull
+	}
+	if token.EXP == 0{
+		tokenHelper := new (TokenHelper)
+		tokenHelper, err = token.GetTokenHelper(token.KID)
+		if err != nil{
+			return err
+		}
+		//Now fetch application..
+		_, err = tokenHelper.FetchTokenHelperApp()
+		if err != nil{
+			return err
+		}
+		//Now fetch the application settings...
+		_, err = tokenHelper.Application.FetchAppSettings()
+		if err != nil{
+			return err
+		}
+		if tokenHelper.Application.Settings != nil{
+			duration := tokenHelper.Application.Settings.ExpiryDuration
+			if duration == 0 {
+				//Default expiry after 1 hour
+				duration = beego.AppConfig.DefaultInt("jwt::expiry", 3600)
+			}
+			expiryTime := time.Now().Add(time.Second * time.Duration(duration)).Unix() //time after it will be invalid..
+			token.EXP = expiryTime
+		}
+
+	}
+	if token.GRP{
+		return errorMessage.TokenGroupNotPresent
+	}
+	//Putting default status of token to active..
+	token.STATUS = StatusMap["ACTIVE"]
+
+
+	var exist bool
+	//Also create relationship.
+	if exist, err = token.Exist(); err == nil && exist == false {
+		stmt := `MATCH (realm:Realm{name: {realmName}, appId: {appId} })
+			 CREATE (grp:Group{name: {tokenName}, appId: {appId}, realmName: {realmName}, id: {id} })
+			 CREATE (realm) - [type: Type] -> (grp)`
+		cq := neoism.CypherQuery{
+			Statement: stmt,
+			Parameters: neoism.Props{"realmName":  token.RealmName, "appId": token.AppId, "tokenName": token.Name, "id": id},
+		}
+
+		// Issue the query.
+		err = db.Cypher(&cq)
+
+		if err == nil{
+			//Add id
+			token.Id = id
+		}
+		return
+	}else{
+		return errorMessage.ErrorAlreadyPresent
+	}
 }
 
 //TODO WRITE A METHOD TO UPDATE STATUS IF FOUND INVALID..TOKEN
-//TODO WRITE ALL GRAPHQL METHODS..
+//TODO WRITE ALL GRAPHQL METHODS....
+
 
 
 

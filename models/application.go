@@ -26,6 +26,13 @@ func (app *Application) FetchAppTokens() (num int64, err error) {
 	return
 }
 
+func (app *Application) FetchAppSettings() (num int64, err error) {
+	o := orm.NewOrm()
+	o.Using("default")
+	num, err = o.LoadRelated(app, "Settings")
+	return
+}
+
 
 //Get the  application listed whose application id is given..
 func (app *Application) GetApp()(err error){

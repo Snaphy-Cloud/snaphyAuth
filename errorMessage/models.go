@@ -11,5 +11,7 @@ var (
 	TokenNotValid             = errors.New("Token string not valid")
 	AppIdNull                 = errors.New("Token helper app id cannot be null")
 	TokenJTINotPresent        = errors.New("Tokens JTI key not present in the token model")
-
+	TokenStatusNotPresent     = errors.New("Tokens model doesn't have status present")
+	TokenUserIdNotPresent     = errors.New("User Id  not present in the token model")
+	TokenGroupNotPresent      = errors.New("Token model group name cannot be empty")
 )
